@@ -57,7 +57,7 @@ test("cartão ao vivo antes, durante e depois da viagem", () => {
   assert.deepEqual(liveState(DAYS, { date: "2026-11-29", min: 600 }), { phase: "after" });
   const s = liveState(DAYS, { date: "2026-11-27", min: toMin("17:00") });
   assert.equal(s.phase, "during");
-  assert.equal(DAYS[s.di].stops[s.nowIdx].title, "Lanche da tarde no hotel");
+  assert.equal(DAYS[s.di].stops[s.nowIdx].title, "Volta ao hotel");
   assert.equal(DAYS[s.di].stops[s.nextIdx].title, "Uber até o Gatzz");
   assert.deepEqual(s.leave, { at: "17:15", inMin: 15 });
 });
