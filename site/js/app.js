@@ -124,7 +124,7 @@ function renderWeatherViews() {
 }
 
 // ---------- navegação ----------
-const TABS = ["roteiro", "tempo", "voo", "mala", "dicas"];
+const TABS = ["roteiro", "tempo", "mala", "voo", "dicas"];
 let currentTab = "roteiro";
 
 function route() {
@@ -266,7 +266,7 @@ function renderLive(n) {
         </div>`;
     }
     html = `
-      <section class="live band" aria-labelledby="live-t">
+      <section class="live band live-during" aria-labelledby="live-t">
         <p class="eyebrow">${icon("star")}${greeting(n.min)} · ${esc(fmtDate(day.date))}</p>
         <h2 class="live-title" id="live-t">${welcomeHTML(day.welcome)}</h2>
         ${status}
@@ -297,9 +297,9 @@ function weatherFact(date) {
 function stopBody(s, di, si) {
   const mv = moveOf(s);
   const meta = [
-    s.photo && `<li>${icon("camera")}<span>Foto: ${esc(s.photo)}</span></li>`,
     s.tip && `<li>${icon("bulb")}<span>Dica: ${esc(s.tip)}</span></li>`,
     s.cost && !s.paid && `<li>${icon("coin")}<span>Valor: ${esc(s.cost)}</span></li>`,
+    s.photo && `<li>${icon("camera")}<span>Foto: ${esc(s.photo)}</span></li>`,
   ].filter(Boolean).join("");
   const actions = [
     s.place && `<a class="btn" href="${mapsSearch(s.place)}" ${ext}>${icon("map")}Mapa</a>`,
@@ -319,14 +319,30 @@ function renderDay(n = now()) {
   const d = DAYS[dayIdx];
   const uber = uberRange(d);
   const paid = paidCount(d);
-  const alerts = weatherAlerts(forecastFor(d.date));
-  const notes = [
-    ...alerts.map(alertHTML),
-    ...(d.notes || []).map((t) => `<p class="note note-info">${icon("info")}<span>${esc(t)}</span></p>`),
-  ].join("");
+  const rank = { danger: 0, notice: 1 };
+  const alerts = weatherAlerts(forecastFor(d.date)).sort((a, b) => rank[a.level] - rank[b.level]).map(alertHTML).join("");
+  const notes = (d.notes || []).map((t) => `<p class="note note-info">${icon("info")}<span>${esc(t)}</span></p>`).join("");
+  const statuses = d.stops.map((_, i) => statusFor(d, i, n));
+
+  // Paradas já feitas no começo do dia viram um grupo fechado: a atual fica no alto.
+  let doneLead = 0;
+  while (doneLead < statuses.length && statuses[doneLead] === "done") doneLead++;
+  const doneDetails = (s, i) => `<details class="stop" aria-labelledby="t-${dayIdx}-${i}" id="stop-${dayIdx}-${i}">
+      <summary><span class="num">${fmtH(s.t)}</span><span class="t">${esc(s.title)}</span>${stateTag("done")}${icon("chevron", "chev")}</summary>
+      <div class="stop-body">${stopBody(s, dayIdx, i)}</div>
+    </details>`;
+  const grouped = doneLead >= 2;
+  const doneGroup = grouped
+    ? `<li class="tl-item is-done"><div class="tl-row"><span class="tl-mark"></span>
+        <details class="stop done-group">
+          <summary>${icon("check")}<span class="t">${doneLead === d.stops.length ? "Dia concluído" : `${doneLead} paradas feitas`}</span><span class="num">${fmtH(d.stops[0].t)} a ${fmtH(d.stops[doneLead - 1].t)}</span>${icon("chevron", "chev")}</summary>
+          <div class="done-list">${d.stops.slice(0, doneLead).map(doneDetails).join("")}</div>
+        </details></div></li>`
+    : "";
 
   const items = d.stops.map((s, i) => {
-    const st = statusFor(d, i, n);
+    if (grouped && i < doneLead) return "";
+    const st = statuses[i];
     const leg = s.leg ? `<div class="tl-leg">${icon(MODE[s.leg.mode].icon)}<span class="tnum">${esc(moveText(s.leg))}</span>${s.leg.alt ? `<span>${esc(s.leg.alt)}</span>` : ""}</div>` : "";
     const lt = leaveTime(s);
     const leaveTag = !st.match(/done|now/) && lt && !s.trip && lt !== s.t ? `<span class="state state-paid num">${icon("walk")}Sair ${fmtH(lt)}</span>` : "";
@@ -345,7 +361,7 @@ function renderDay(n = now()) {
   }).join("");
 
   const isToday = d.date === n.date;
-  const doneCount = d.stops.filter((_, i) => statusFor(d, i, n) === "done").length;
+  const doneCount = statuses.filter((st) => st === "done").length;
   const progress = isToday
     ? `<div class="progress"><div class="progress-row"><span>Paradas de hoje</span><span class="num">${doneCount} de ${d.stops.length} feitas</span></div>
        <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${d.stops.length}" aria-valuenow="${doneCount}" aria-label="Paradas feitas hoje"><span style="width:${Math.round((doneCount / d.stops.length) * 100)}%"></span></div></div>`
@@ -357,6 +373,9 @@ function renderDay(n = now()) {
       <h2 class="day-name">${esc(d.name)}</h2>
       <p class="day-magic">${esc(d.magic)}</p>
       <p class="day-hint">${esc(d.hint)}</p>
+    </div>
+    ${alerts ? `<div class="block">${alerts}</div>` : ""}
+    <div class="day-facts">
       <div class="facts">
         ${weatherFact(d.date)}
         ${isToday ? "" : `<span class="fact num">${icon("pin")}${d.stops.length} paradas</span>`}
@@ -366,7 +385,7 @@ function renderDay(n = now()) {
       ${progress}
     </div>
     ${notes ? `<div class="block">${notes}</div>` : ""}
-    <ol class="tl">${items}</ol>
+    <ol class="tl">${doneGroup}${items}</ol>
     ${ornament("Fim do dia. Bons sonhos!")}`;
   lastSignature = signature(n);
 }
@@ -404,7 +423,8 @@ function renderTempo() {
       ? `<p class="note note-notice">${icon("alert")}<span>Sem conexão com o serviço de previsão. ${WX ? "Mostrando a última previsão salva." : "Tentem de novo quando tiver internet."}</span></p>`
       : "";
 
-  const cards = DAYS.map((d) => {
+  const ahead = DAYS.filter((d) => d.date >= n.date);
+  const cards = (ahead.length ? ahead : DAYS).map((d) => {
     const f = forecastFor(d.date);
     if (!f) {
       const from = new Date(`${d.date}T12:00:00Z`);
@@ -499,6 +519,20 @@ function packItems(who) {
     .filter((g) => g.items.length);
 }
 
+// Grupo recolhível: só o próximo grupo a completar abre sozinho; depois vale o que a pessoa abriu ou fechou.
+const groupOpen = {};
+function groupBlock(key, ico, title, done, total, body, openByDefault) {
+  const complete = done === total;
+  const open = key in groupOpen ? groupOpen[key] : openByDefault;
+  const tag = complete
+    ? `<span class="state state-now num">${icon("check")}${done}/${total}</span>`
+    : `<span class="state state-paid num">${done}/${total}</span>`;
+  return `<details class="group" data-group="${esc(key)}" ${open ? "open" : ""}>
+    <summary><span class="block-title">${icon(ico)}${esc(title)}</span>${tag}${icon("chevron", "chev")}</summary>
+    <fieldset class="check-group"><legend class="sr-only">${esc(title)}</legend>${body}</fieldset>
+  </details>`;
+}
+
 function renderMala() {
   const groups = packItems(person);
   const checked = store.get(`mala:${person}`, {});
@@ -508,23 +542,24 @@ function renderMala() {
   const who = P.PEOPLE.find((p) => p.id === person);
   const ofWho = person === "mae" ? "da mãe" : "da Nathaly";
 
-  const groupHTML = groups.map((g) => `
-    <fieldset class="check-group">
-      <legend class="block-title">${icon(g.icon)}${esc(g.title)}</legend>
-      ${g.items.map((i) => `
+  const firstOpen = groups.find((g) => g.items.some((i) => !checked[i.id]));
+  const groupHTML = groups.map((g) => groupBlock(`${person}:${g.id}`, g.icon, g.title,
+    g.items.filter((i) => checked[i.id]).length, g.items.length,
+    g.items.map((i) => `
         <label class="check">
           <input type="checkbox" data-check="${esc(i.id)}" ${checked[i.id] ? "checked" : ""}>
           <span class="check-text">${esc(i.text)}</span>
           ${i.note ? `<span class="check-note">${esc(i.note)}</span>` : ""}
-        </label>`).join("")}
-    </fieldset>`).join("");
+        </label>`).join(""), g === firstOpen)).join("");
 
   const out = store.get("mala:checkout", {});
-  const checkout = P.CHECKOUT.map((t, i) => `
+  const checkout = groupBlock("checkout", "bed", "Antes de sair do hotel (sáb 28)",
+    P.CHECKOUT.filter((_, i) => out[i]).length, P.CHECKOUT.length,
+    P.CHECKOUT.map((t, i) => `
     <label class="check">
       <input type="checkbox" data-out="${i}" ${out[i] ? "checked" : ""}>
       <span class="check-text">${esc(t)}</span>
-    </label>`).join("");
+    </label>`).join(""), now().date === DAYS[DAYS.length - 1].date);
 
   $("#mala").innerHTML = `
     <header class="sec-head band">
@@ -544,24 +579,21 @@ function renderMala() {
       <h2 class="block-title">${icon("heart")}Para ${person === "mae" ? "a mãe" : "a Nathaly"}</h2>
       <ul class="panel bullets">${P.PERSON_TIPS[person].map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
     </section>
-    ${groupHTML}
-    <div class="actions"><button class="btn" type="button" id="resetMala">Desmarcar a lista ${ofWho}</button></div>
-    <section class="block" aria-labelledby="h-arrumar">
-      <h2 class="block-title" id="h-arrumar">${icon("bag")}Como arrumar a mala</h2>
-      <ul class="panel bullets">${P.PACK_TIPS.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
-    </section>
+    <div class="groups">${groupHTML}</div>
     <section class="block" aria-labelledby="h-proibido">
       <h2 class="block-title" id="h-proibido">${icon("x")}Não pode levar</h2>
       <ul class="panel x-list">${P.FORBIDDEN.map((f) => `<li>${icon("x")}<strong>${esc(f.title)}</strong><span>${esc(f.text)}</span></li>`).join("")}</ul>
+    </section>
+    <section class="block" aria-labelledby="h-arrumar">
+      <h2 class="block-title" id="h-arrumar">${icon("bag")}Como arrumar a mala</h2>
+      <ul class="panel bullets">${P.PACK_TIPS.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
     </section>
     <section class="block" aria-labelledby="h-compras">
       <h2 class="block-title" id="h-compras">${icon("coin")}Compras para trazer</h2>
       <ul class="panel bullets">${P.SHOPPING.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
     </section>
-    <fieldset class="check-group">
-      <legend class="block-title">${icon("bed")}Antes de sair do hotel (sáb 28)</legend>
-      ${checkout}
-    </fieldset>`;
+    <div class="groups">${checkout}</div>
+    <div class="actions"><button class="btn" type="button" id="resetMala">Desmarcar a lista ${ofWho}</button></div>`;
 }
 
 // ---------- dicas ----------
@@ -576,17 +608,21 @@ function renderDicas() {
       <p class="sec-lead">Para aproveitar cada cantinho da cidade com calma e segurança.</p>
       ${SKY}
     </header>
-    <div class="tips">${tips}</div>
     <section class="block" aria-labelledby="h-sos">
       <h2 class="block-title" id="h-sos">${icon("phone")}Emergência</h2>
       <div class="sos">${sos}</div>
       <a class="btn" href="${mapsSearch(P.HOSPITAL.place)}" ${ext}>${icon("map")}${esc(P.HOSPITAL.name)}, no mapa</a>
-    </section>`;
+    </section>
+    <div class="tips">${tips}</div>`;
 }
 
 // ---------- eventos ----------
 function bind() {
   window.addEventListener("hashchange", route);
+  document.addEventListener("toggle", (e) => {
+    const g = e.target instanceof HTMLDetailsElement ? e.target.closest("[data-group]") : null;
+    if (g === e.target) groupOpen[g.dataset.group] = g.open;
+  }, true);
   $("#themeBtn").addEventListener("click", toggleTheme);
 
   document.addEventListener("click", (e) => {

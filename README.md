@@ -10,9 +10,9 @@ Guia de viagem ao vivo para a viagem de mãe e filha a Gramado e Canela no Natal
 |---|---|
 | Roteiro | Linha do tempo do dia com "Agora", "Próximo" e "Saiam às…", trajeto, valor, mapa e Uber. Antes da viagem, contagem regressiva com tarefas. |
 | Tempo | Previsão de cada dia com alertas de frio, chuva, calor e vento e sugestão do que vestir. |
+| Mala | Checklist da Nathaly e da mãe, o que não pode levar, como arrumar 10 kg e o que conferir no check-out. |
 | Voo | Primeiro voo passo a passo (Azul, só bagagem de mão) e direitos se atrasar. |
-| Mala | Checklist da Nathaly e da mãe, como arrumar 10 kg, o que não pode levar e o que conferir no check-out. |
-| Dicas | Hotel, água grátis, Uber, 220 V, ponto de encontro e telefones de emergência. |
+| Dicas | Telefones de emergência, hotel, ponto de encontro, Uber, água grátis e 220 V. |
 
 Visual "Natal Luz à noite": topo azul-noite com luzes e dourado, frase de boas-vindas para cada dia. Funciona sem internet depois da primeira abertura (instalar com "Adicionar à tela inicial"). Tema claro por padrão, escuro no botão da lua.
 

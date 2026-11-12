@@ -233,19 +233,19 @@ export const PASSENGER_RIGHTS = [
 // Aba Dicas: em Gramado.
 export const TIPS = [
   { title: "Hotel", icon: "bed", text: "Colina São Francisco, Rua Pedro Candiago, 993. Café das 7h às 10h." },
-  { title: "Água grátis", icon: "drop", text: "Bebedouros de água gelada e quente em frente à Igreja São Pedro e na Praça das Etnias." },
-  { title: "Uber", icon: "car", text: "Tempos, km e preços do roteiro são estimativas. À noite e depois dos shows sobe: se disparar, esperem 10 min ou andem uma quadra para longe da multidão." },
-  { title: "Vouchers", icon: "ticket", text: "Prints de tudo no celular: Naro, Bondinhos, Bustour, Museu de Cera, Gatzz e Mogusha." },
-  { title: "Tomadas de 220 V", icon: "plug", text: "Gramado e Canela são 220 V. Confiram na etiqueta se o aparelho é bivolt." },
   { title: "Ponto de encontro", icon: "pin", text: "Se se perderem, encontrem-se em frente à Igreja São Pedro. Compartilhem a localização em tempo real no WhatsApp." },
+  { title: "Uber", icon: "car", text: "Tempos, km e preços do roteiro são estimativas. À noite e depois dos shows sobe: se disparar, esperem 10 min ou andem uma quadra para longe da multidão." },
   { title: "Na multidão", icon: "shield", text: "Celular no bolso da frente e bolsa cruzada na frente do corpo nos shows e na Parada." },
+  { title: "Vouchers", icon: "ticket", text: "Prints de tudo no celular: Naro, Bondinhos, Bustour, Museu de Cera, Gatzz e Mogusha." },
+  { title: "Água grátis", icon: "drop", text: "Bebedouros de água gelada e quente em frente à Igreja São Pedro e na Praça das Etnias." },
   { title: "Ritmo", icon: "heart", text: "Ladeiras e calçadas irregulares cansam. Pausa para sentar a cada passeio longo; ninguém precisa fazer tudo." },
+  { title: "Tomadas de 220 V", icon: "plug", text: "Gramado e Canela são 220 V. Confiram na etiqueta se o aparelho é bivolt." },
 ];
 
 export const EMERGENCY = [
   { label: "SAMU", tel: "192" },
   { label: "Bombeiros", tel: "193" },
-  { label: "Polícia Militar", tel: "190" },
+  { label: "Polícia", tel: "190" },
 ];
 
 export const HOSPITAL = { name: "Hospital Arcanjo São Miguel", place: "Hospital Arcanjo São Miguel Gramado" };

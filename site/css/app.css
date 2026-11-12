@@ -329,6 +329,7 @@ main:focus { outline: none; }
   line-height: 1.05;
 }
 .live-sub { color: var(--on-night-muted); font-size: var(--fs-2); line-height: 1.5; }
+.live-during .live-title { font-size: var(--fs-5); }
 .live-now { display: flex; align-items: center; gap: var(--sp-2); color: var(--on-night-muted); font-size: var(--fs-2); }
 .live-now .dot {
   width: 0.5rem;
@@ -422,7 +423,9 @@ main:focus { outline: none; }
 .day-btn[aria-selected="true"] .wd, .day-btn[aria-selected="true"] .st { color: var(--pick-sub); }
 
 /* ---------- dia ---------- */
+#day { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-4); }
 .day-head { display: grid; gap: var(--sp-2); }
+.day-facts { display: grid; gap: var(--sp-3); }
 .day-head .eyebrow { color: var(--ornament); }
 .day-head .progress { padding-top: var(--sp-2); }
 .day-name {
@@ -534,6 +537,11 @@ details.stop > summary::-webkit-details-marker { display: none; }
 details.stop > summary .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
 details.stop > summary .chev { transition: transform var(--dur) var(--ease); }
 details.stop[open] > summary .chev { transform: rotate(180deg); }
+/* grupo das paradas já feitas */
+.done-group > summary .i:first-child { color: var(--success); }
+.done-group > summary .t { font-weight: 600; }
+.done-list { display: grid; gap: var(--sp-1); padding: 0 var(--sp-2) var(--sp-2); }
+.done-list details.stop { background: var(--surface); }
 details.stop > .stop-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); padding: 0 var(--sp-4) var(--sp-4); }
 
 .orn {
@@ -667,8 +675,21 @@ details.stop > .stop-body { display: grid; grid-template-columns: minmax(0, 1fr)
 .bar { height: var(--sp-2); background: var(--sunken); border-radius: var(--radius-pill); overflow: hidden; }
 .bar span { display: block; height: 100%; background: var(--success); border-radius: var(--radius-pill); transition: width var(--dur) var(--ease); }
 
-.check-group { border: 0; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
-.check-group legend { padding: 0 0 var(--sp-2); }
+.groups { display: grid; gap: var(--sp-3); }
+.group > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: var(--tap);
+  cursor: pointer;
+  list-style: none;
+}
+.group > summary::-webkit-details-marker { display: none; }
+.group > summary .block-title { flex: 1; min-width: 0; }
+.group > summary .chev { color: var(--muted); transition: transform var(--dur) var(--ease); }
+.group[open] > summary .chev { transform: rotate(180deg); }
+.group > .check-group { padding-top: var(--sp-2); }
+.check-group { border: 0; margin: 0; padding: 0; display: grid; gap: var(--sp-2); min-width: 0; }
 .check {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -759,7 +780,6 @@ details.stop > .stop-body { display: grid; grid-template-columns: minmax(0, 1fr)
   .roteiro-main { display: grid; gap: var(--sp-5); }
   .wx-grid { grid-template-columns: repeat(3, 1fr); }
   .steps, #mala .check-group { grid-template-columns: 1fr 1fr; align-items: start; }
-  #mala .check-group legend { float: left; width: 100%; }
 }
 
 @media (max-width: 63.99rem) {
