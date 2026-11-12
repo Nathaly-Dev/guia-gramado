@@ -3,7 +3,7 @@
 
 export const PEOPLE = [
   { id: "nathaly", name: "Nathaly" },
-  { id: "mae", name: "Mãe" },
+  { id: "mae", name: "Fatima" },
 ];
 
 // Checklist da mala. who: "both" (as duas), "nathaly" ou "mae".

@@ -540,7 +540,7 @@ function renderMala() {
   const done = all.filter((i) => checked[i.id]).length;
   const pct = all.length ? Math.round((done / all.length) * 100) : 0;
   const who = P.PEOPLE.find((p) => p.id === person);
-  const ofWho = person === "mae" ? "da mãe" : "da Nathaly";
+  const ofWho = person === "mae" ? "da Fatima" : "da Nathaly";
 
   const firstOpen = groups.find((g) => g.items.some((i) => !checked[i.id]));
   const groupHTML = groups.map((g) => groupBlock(`${person}:${g.id}`, g.icon, g.title,
@@ -576,7 +576,7 @@ function renderMala() {
       <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Progresso da mala"><span style="width:${pct}%"></span></div>
     </div>
     <section class="block" aria-label="Dicas ${ofWho}">
-      <h2 class="block-title">${icon("heart")}Para ${person === "mae" ? "a mãe" : "a Nathaly"}</h2>
+      <h2 class="block-title">${icon("heart")}Para ${person === "mae" ? "a Fatima" : "a Nathaly"}</h2>
       <ul class="panel bullets">${P.PERSON_TIPS[person].map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
     </section>
     <div class="groups">${groupHTML}</div>
