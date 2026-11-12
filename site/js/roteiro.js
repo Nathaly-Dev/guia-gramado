@@ -8,6 +8,8 @@
 //   trip   a própria parada é um deslocamento que começa em t (mesmo formato de leg)
 //   place  texto de busca no mapa; addr: endereço exibido; uberTo: destino do Uber
 //   cost   texto do valor; paid: já pago (voucher)
+//
+// Dia: welcome = título de boas-vindas [antes, destaque, depois]; magic = frase do dia.
 
 export const HOTEL = "Rua Pedro Candiago, 993, Gramado, RS";
 const GATZZ = "Av. das Hortênsias, 3380, Gramado, RS";
@@ -23,6 +25,8 @@ export const DAYS = [
   {
     date: "2026-11-24", tab: "Ter 24", name: "Viagem e primeiras luzes",
     hint: "De São Paulo a Gramado, comer algo e ver o show.",
+    welcome: ["Bem-vindas a ", "Gramado", "!"],
+    magic: "A magia começa hoje: as primeiras luzes de Natal se acendem para vocês.",
     endAt: "23:59",
     stops: [
       { t: "09:30", title: "Saída para Congonhas", desc: "Da casa do seu pai, na Vila Nova Cachoeirinha, de carro com a parente. A Marginal pode ter trânsito, então não atrasem.", place: "Aeroporto de Congonhas", trip: { mode: "car", min: [60, 60], dist: "25 km", label: "Carro" }, cost: "R$ 120" },
@@ -38,6 +42,8 @@ export const DAYS = [
   {
     date: "2026-11-25", tab: "Qua 25", name: "Gramado a pé",
     hint: "Tudo em Gramado. Manhã no centro, tarde no Lago Negro, noite de luzes.",
+    welcome: ["Que comece o ", "encanto", ""],
+    magic: "Casinhas de Natal, chocolate quente e uma surpresa em cada esquina.",
     notes: ["A partir das 15h10, o check-in do voo de volta abre no app da Azul."],
     endAt: "22:00",
     stops: [
@@ -58,6 +64,8 @@ export const DAYS = [
   {
     date: "2026-11-26", tab: "Qui 26", name: "Canela, trenó e Sonho de Natal",
     hint: "Dia longo. Se sua mãe ficar cansada ou tonta, pulem o show da noite.",
+    welcome: ["Um dia ", "inesquecível", ""],
+    magic: "A cascata vista lá do alto, uma descida de trenó e o Papai Noel descendo da Catedral.",
     notes: ["Façam o check-in do voo de volta no app da Azul, se ainda não fizeram."],
     endAt: "22:00",
     stops: [
@@ -78,6 +86,8 @@ export const DAYS = [
   {
     date: "2026-11-27", tab: "Sex 27", name: "Natal no centro e noite de Gatzz",
     hint: "Manhã leve, Parada de Natal à tarde e fondue com show à noite.",
+    welcome: ["Gramado em ", "clima de festa", ""],
+    magic: "Um dia para guardar no coração, com cheirinho de chocolate no ar.",
     notes: ["Arrumem a mala hoje à noite: o check-out é amanhã às 10h."],
     endAt: "23:00",
     stops: [
@@ -96,6 +106,8 @@ export const DAYS = [
   {
     date: "2026-11-28", tab: "Sáb 28", name: "Despedida",
     hint: "Última caminhada e volta para casa.",
+    welcome: ["Até logo, ", "Gramado", ""],
+    magic: "Guardem cada luz na memória: Gramado já está com saudade de vocês.",
     endAt: "17:00",
     stops: [
       { t: "07:00", title: "Café no hotel", desc: "Das 7h às 8h30.", cost: "Incluso" },

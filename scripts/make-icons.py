@@ -1,14 +1,14 @@
 """Gera os ícones do guia (PNG e SVG) a partir dos tokens do design system.
 
 Uso: python scripts/make-icons.py
-Ícone: estrela dourada sobre o vinho do tema natalino (site/css/guia.css). Nunca editar os PNGs à mão.
+Ícone: estrela dourada sobre o azul-noite do tema (site/css/guia.css). Nunca editar os PNGs à mão.
 """
 from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-ACCENT = "#8e1c2c"  # --accent
-STAR_COLOR = "#f2cf6b"  # --ornament-on-accent
+ACCENT = "#0e1a30"  # --night
+STAR_COLOR = "#e9c46a"  # --gold
 OUT = Path(__file__).resolve().parent.parent / "site" / "icons"
 
 # Estrela de 5 pontas no quadro 24x24 (mesma do ícone i-star do index.html).

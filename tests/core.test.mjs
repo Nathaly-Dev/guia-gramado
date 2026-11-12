@@ -72,6 +72,8 @@ test("o roteiro está consistente", () => {
   for (const d of DAYS) {
     assert.match(d.date, /^\d{4}-\d{2}-\d{2}$/);
     assert.ok(d.stops.length > 0, d.date);
+    assert.equal(d.welcome?.length, 3, `boas-vindas: ${d.date}`);
+    assert.ok(d.magic, `frase do dia: ${d.date}`);
     let prev = -1;
     for (const s of d.stops) {
       const where = `${d.date} ${s.t} ${s.title}`;

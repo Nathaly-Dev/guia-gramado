@@ -151,7 +151,7 @@ function syncThemeButton() {
   const btn = $("#themeBtn");
   btn.setAttribute("aria-pressed", String(dark));
   btn.setAttribute("aria-label", dark ? "Usar tema claro" : "Usar tema escuro");
-  const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+  const bg = getComputedStyle(document.documentElement).getPropertyValue("--night").trim();
   $('meta[name="theme-color"]').setAttribute("content", bg);
 }
 
@@ -191,6 +191,9 @@ function stateTag(st) {
   return "";
 }
 
+const greeting = (min) => (min < 720 ? "Bom dia" : min < 1080 ? "Boa tarde" : "Boa noite");
+const welcomeHTML = ([pre, em, post]) => `${esc(pre)}<em>${esc(em)}</em>${esc(post)}`;
+
 function renderLive(n) {
   const s = liveState(DAYS, n);
   let html = "";
@@ -199,38 +202,33 @@ function renderLive(n) {
       const done = n.date > t.date || (n.date === t.date && n.min >= toMin(t.t) + 60);
       return `<li class="${done ? "is-done" : ""}">${icon(done ? "check" : "clock")}<span>${esc(t.text)}</span><span class="when num">${esc(fmtDate(t.date))} · ${fmtH(t.t)}</span></li>`;
     }).join("");
+    const count = s.days === 1 ? "Falta <em>1 dia</em>" : `Faltam <em class="num">${s.days} dias</em>`;
     html = `
-      <section class="live" aria-labelledby="live-t">
-        <p class="eyebrow">${icon("plane")}Contagem regressiva</p>
-        <h2 class="live-title num" id="live-t">${s.days === 1 ? "Falta 1 dia" : `Faltam ${s.days} dias`}</h2>
-        <p class="live-sub">Saída ter 24/11 às 9h30 · voo às 12h55</p>
+      <section class="live band" aria-labelledby="live-t">
+        <p class="eyebrow">${icon("star")}Contagem regressiva</p>
+        <h2 class="live-title" id="live-t">${count} para a magia do Natal Luz</h2>
+        <p class="live-sub">Vem viver essa aventura de Natal! Saída ter 24/11 às 9h30, voo às 12h55.</p>
         <ul class="todo">${tasks}</ul>
-        <div class="actions"><a class="btn" href="#mala">${icon("bag")}Conferir a mala</a></div>
+        <div class="actions"><a class="btn gold" href="#mala">${icon("bag")}Conferir a mala</a></div>
       </section>`;
   } else if (s.phase === "after") {
     html = `
-      <section class="live" aria-labelledby="live-t">
+      <section class="live band" aria-labelledby="live-t">
         <p class="eyebrow">${icon("star")}Viagem concluída</p>
-        <h2 class="live-title" id="live-t">Que viagem linda!</h2>
-        <p class="live-sub">Hora de ver as fotos.</p>
+        <h2 class="live-title" id="live-t">Que viagem <em>mágica</em>!</h2>
+        <p class="live-sub">Obrigada, Gramado. Agora é hora de rever as fotos.</p>
       </section>`;
   } else {
     const day = DAYS[s.di];
-    let head;
+    let status;
     if (s.nowIdx >= 0) {
       const cur = day.stops[s.nowIdx];
-      head = `
-        <p class="eyebrow">${icon("now")}Agora · até ${fmtH(stopEnd(day, s.nowIdx))}</p>
-        <h2 class="live-title" id="live-t">${esc(cur.title)}</h2>
-        ${cur.addr ? `<p class="live-sub">${esc(cur.addr)}</p>` : ""}`;
+      status = `<p class="live-now"><span class="dot" aria-hidden="true"></span><span>Agora: <strong>${esc(cur.title)}</strong>, até ${fmtH(stopEnd(day, s.nowIdx))}</span></p>`;
     } else if (s.nextIdx >= 0) {
-      head = `<p class="eyebrow">${icon("clock")}Tempo livre</p><h2 class="live-title" id="live-t">Aproveitem!</h2>`;
+      status = `<p class="live-now">${icon("clock")}<span>Tempo livre. Aproveitem!</span></p>`;
     } else {
       const tomorrow = DAYS[s.di + 1];
-      head = `
-        <p class="eyebrow">${icon("moon")}Dia encerrado</p>
-        <h2 class="live-title" id="live-t">Bom descanso!</h2>
-        ${tomorrow ? `<p class="live-sub">Amanhã: ${esc(tomorrow.name)}</p>` : ""}`;
+      status = `<p class="live-now">${icon("moon")}<span>Dia encerrado. Bons sonhos!${tomorrow ? ` Amanhã: <strong>${esc(tomorrow.name)}</strong>` : ""}</span></p>`;
     }
     let next = "";
     if (s.nextIdx >= 0) {
@@ -247,19 +245,25 @@ function renderLive(n) {
           }</p>`
         : "";
       const go = st.place && (!mv || mv.mode !== "bus")
-        ? `<a class="btn primary" href="${mapsRoute(st.place, mv ? mv.mode : "walk")}" ${ext}>${icon("map")}Como chegar</a>`
-        : st.place ? `<a class="btn primary" href="${mapsSearch(st.place)}" ${ext}>${icon("map")}Ver no mapa</a>` : "";
-      const uber = wantsUber(st) ? `<a class="btn" href="${uberLink(uberDest(st))}" ${ext}>${icon("car")}Chamar Uber</a>` : "";
+        ? `<a class="btn gold" href="${mapsRoute(st.place, mv ? mv.mode : "walk")}" ${ext}>${icon("map")}Como chegar</a>`
+        : st.place ? `<a class="btn gold" href="${mapsSearch(st.place)}" ${ext}>${icon("map")}Ver no mapa</a>` : "";
+      const uber = wantsUber(st) ? `<a class="btn ghost" href="${uberLink(uberDest(st))}" ${ext}>${icon("car")}Chamar Uber</a>` : "";
       next = `
-        <div class="live-next">
+        <div class="glass">
           <p class="eyebrow">Próximo · <span class="num">${fmtH(st.t)}</span> · <span class="num">em ${durationLabel(s.nextInMin)}</span></p>
-          <p class="live-next-title">${esc(st.title)}</p>
+          <p class="glass-title">${esc(st.title)}</p>
           ${leave}
           ${mv ? moveHTML(mv) : ""}
-          ${go || uber ? `<div class="actions">${go}${uber}<button class="btn" type="button" data-goto="${s.di}-${s.nextIdx}">Ver no roteiro</button></div>` : ""}
+          <div class="actions">${go}${uber}<button class="btn ghost" type="button" data-goto="${s.di}-${s.nextIdx}">Ver no roteiro</button></div>
         </div>`;
     }
-    html = `<section class="live" aria-labelledby="live-t">${head}${next}</section>`;
+    html = `
+      <section class="live band" aria-labelledby="live-t">
+        <p class="eyebrow">${icon("star")}${greeting(n.min)} · ${esc(fmtDate(day.date))}</p>
+        <h2 class="live-title" id="live-t">${welcomeHTML(day.welcome)}</h2>
+        ${status}
+        ${next}
+      </section>`;
   }
   $("#live").innerHTML = html;
 }
@@ -333,6 +337,7 @@ function renderDay(n = now()) {
   $("#day").innerHTML = `
     <div class="day-head">
       <h2 class="day-name">${esc(d.name)}</h2>
+      <p class="day-magic">${esc(d.magic)}</p>
       <p class="day-hint">${esc(d.hint)}</p>
       <div class="facts">
         ${weatherFact(d.date)}
@@ -343,7 +348,7 @@ function renderDay(n = now()) {
     </div>
     ${notes ? `<div class="block">${notes}</div>` : ""}
     <ol class="tl">${items}</ol>
-    <p class="day-end">${icon("star")}Fim do dia. Bom descanso!</p>`;
+    <p class="day-end">${icon("star")}Fim do dia. Bons sonhos!</p>`;
   lastSignature = signature(n);
 }
 
@@ -409,9 +414,10 @@ function renderTempo() {
   }).join("");
 
   $("#tempo").innerHTML = `
-    <header class="sec-head">
-      <h1 class="sec-title" id="h-tempo">Previsão do tempo</h1>
-      <p class="sec-lead">Gramado e Canela, dia a dia da viagem, com alertas de frio, chuva e vento.</p>
+    <header class="sec-head band">
+      <p class="eyebrow">${icon("cloud-sun")}Gramado e Canela</p>
+      <h1 class="sec-title" id="h-tempo">Previsão do <em>tempo</em></h1>
+      <p class="sec-lead">Bem agasalhadas, cada luz fica ainda mais bonita. A previsão de cada dia, com alertas de frio, chuva e vento.</p>
     </header>
     <div class="wx-status">
       <p class="source">${esc(updatedTxt)}</p>
@@ -446,9 +452,10 @@ function renderVoo() {
   const rights = P.PASSENGER_RIGHTS.map((r) => `<div><dt class="num">${esc(r.after)}</dt><dd>${esc(r.right)}</dd></div>`).join("");
 
   $("#voo").innerHTML = `
-    <header class="sec-head">
-      <h1 class="sec-title" id="h-voo">Voo</h1>
-      <p class="sec-lead">O primeiro voo de vocês, passo a passo. Azul, só com bagagem de mão.</p>
+    <header class="sec-head band">
+      <p class="eyebrow">${icon("plane")}Azul · só bagagem de mão</p>
+      <h1 class="sec-title" id="h-voo">Primeiro <em>voo</em></h1>
+      <p class="sec-lead">Vocês vão voar juntas pela primeira vez. Aqui está cada passo, para viver tudo sem susto.</p>
     </header>
     <div class="flights">${flights}</div>
     <section class="block" aria-labelledby="h-passos">
@@ -478,6 +485,7 @@ function renderMala() {
   const done = all.filter((i) => checked[i.id]).length;
   const pct = all.length ? Math.round((done / all.length) * 100) : 0;
   const who = P.PEOPLE.find((p) => p.id === person);
+  const ofWho = person === "mae" ? "da mãe" : "da Nathaly";
 
   const groupHTML = groups.map((g) => `
     <fieldset class="check-group">
@@ -498,23 +506,24 @@ function renderMala() {
     </label>`).join("");
 
   $("#mala").innerHTML = `
-    <header class="sec-head">
-      <h1 class="sec-title" id="h-mala">Mala</h1>
-      <p class="sec-lead">Uma mala de mão de 10 kg e uma mochila de costas para cada uma. Cada celular guarda as próprias marcações.</p>
+    <header class="sec-head band">
+      <p class="eyebrow">${icon("bag")}10 kg + mochila para cada uma</p>
+      <h1 class="sec-title" id="h-mala">Mala <em>pronta</em></h1>
+      <p class="sec-lead">Tudo o que vai com vocês nessa aventura. Cada celular guarda as próprias marcações.</p>
     </header>
     <div class="seg" role="tablist" aria-label="De quem é a lista">
       ${P.PEOPLE.map((p) => `<button type="button" role="tab" aria-selected="${p.id === person}" data-person="${p.id}">${esc(p.name)}</button>`).join("")}
     </div>
     <div class="progress" aria-live="polite">
-      <div class="progress-row"><span>Lista de ${esc(who.name)}</span><span class="num">${done} de ${all.length} na mala</span></div>
+      <div class="progress-row"><span>Lista ${ofWho}</span><span class="num">${done} de ${all.length} na mala</span></div>
       <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Progresso da mala"><span style="width:${pct}%"></span></div>
     </div>
-    <section class="block" aria-label="Dicas de ${esc(who.name)}">
+    <section class="block" aria-label="Dicas ${ofWho}">
       <h2 class="block-title">${icon("heart")}Para ${person === "mae" ? "a mãe" : "a Nathaly"}</h2>
       <ul class="panel bullets">${P.PERSON_TIPS[person].map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
     </section>
     ${groupHTML}
-    <div class="actions"><button class="btn" type="button" id="resetMala">Desmarcar a lista de ${esc(who.name)}</button></div>
+    <div class="actions"><button class="btn" type="button" id="resetMala">Desmarcar a lista ${ofWho}</button></div>
     <section class="block" aria-labelledby="h-arrumar">
       <h2 class="block-title" id="h-arrumar">${icon("bag")}Como arrumar a mala</h2>
       <ul class="panel bullets">${P.PACK_TIPS.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
@@ -539,9 +548,10 @@ function renderDicas() {
     <article class="panel tip">${icon(t.icon)}<h3>${esc(t.title)}</h3><p>${esc(t.text)}</p></article>`).join("");
   const sos = P.EMERGENCY.map((e) => `<a class="btn" href="tel:${e.tel}"><strong class="num">${e.tel}</strong><span>${esc(e.label)}</span></a>`).join("");
   $("#dicas").innerHTML = `
-    <header class="sec-head">
-      <h1 class="sec-title" id="h-dicas">Dicas</h1>
-      <p class="sec-lead">Para aproveitar Gramado sem rodar à toa.</p>
+    <header class="sec-head band">
+      <p class="eyebrow">${icon("bulb")}Para não rodar à toa</p>
+      <h1 class="sec-title" id="h-dicas">Dicas de <em>Gramado</em></h1>
+      <p class="sec-lead">Para aproveitar cada cantinho da cidade com calma e segurança.</p>
     </header>
     <div class="tips">${tips}</div>
     <section class="block" aria-labelledby="h-sos">

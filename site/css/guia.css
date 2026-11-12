@@ -1,7 +1,8 @@
 /*
- * Tokens do guia: o que o design system v0.1 ainda não tem.
- * Tudo aqui é proposta para subir ao design system (ver docs/decisions.md, D3).
+ * Tokens do guia: o que o design system v0.1 ainda não tem + tema "Natal Luz à noite".
+ * Estrutura (fonte de texto, raios sm/pill, componentes) vem do DS; aqui entram escala, cores do tema e a fonte de títulos.
  * Claro é o padrão; o escuro só entra com data-theme="dark" (escolha da pessoa).
+ * Ver docs/decisions.md (D3 e D6).
  */
 
 @font-face {
@@ -12,20 +13,23 @@
 }
 
 @font-face {
-  font-family: "Space Grotesk";
-  src: url("../fonts/space-grotesk-latin-wght-normal.woff2") format("woff2");
-  font-weight: 300 700;
+  font-family: "Fraunces";
+  src: url("../fonts/fraunces-latin-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
   font-display: swap;
 }
 
 :root {
+  /* títulos serifados (identidade do guia); texto segue Inter do DS */
+  --font-serif: "Fraunces", Georgia, "Times New Roman", serif;
+
   /* tipo: 6 tamanhos */
   --fs-1: 0.8125rem;
   --fs-2: 0.9375rem;
   --fs-3: 1.0625rem;
   --fs-4: 1.25rem;
-  --fs-5: 1.5rem;
-  --fs-6: 2rem;
+  --fs-5: 1.625rem;
+  --fs-6: 2.5rem;
 
   /* espaço: múltiplos de 4px */
   --sp-1: 0.25rem;
@@ -36,69 +40,85 @@
   --sp-6: 2rem;
   --sp-7: 3rem;
 
-  /* raios usados no guia: 3 (sm, lg, pill) vêm do DS */
+  /* raios: 3 (sm e pill do DS + lg do guia) */
+  --radius-lg: 1.25rem;
 
   /* movimento: 1 curva, 1 duração */
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   --dur: 0.2s;
 
-  /* toque e largura de leitura */
+  /* toque e largura */
   --tap: 2.75rem;
   --col: 42rem;
   --col-wide: 68rem;
   --nav-h: 4.25rem;
 
-  /* proposta: estado "agora/ok" (o DS só tem danger e notice) */
-  --success: #1f5f3f;
-  --success-soft: #e2efe5;
+  /* ---------- tema claro: creme, com a noite de Natal no topo ---------- */
+  --bg: #f6f1e7;
+  --surface: #fffdf8;
+  --sunken: #ebe3d3;
+  --text: #1a2238;
+  --muted: #625b4e;
+  --line: #e0d5c0;
+  --accent: #1b2d4f;
+  --accent-soft: #e3e7f0;
+  --on-accent: #f7efe0;
+  --ornament: #826319;
+  --shadow: 0 0.5rem 1.5rem rgba(27, 45, 79, 0.08);
 
-  /* proposta: camada de fundo um degrau abaixo da página */
-  --sunken: #efe5d3;
-}
+  /* faixa noturna (topo de cada tela) */
+  --night: #0e1a30;
+  --night-2: #1b2d4f;
+  --night-card: #22345a;
+  --on-night: #f7efe0;
+  --on-night-muted: #c5cfe2;
+  --gold: #e9c46a;
+  --on-gold: #1b1300;
+  --live-on-night: #8fd3a8;
 
-/*
- * Tema natalino do guia (pedido da Nathaly): troca só as cores do DS.
- * Fontes, escala, raios e componentes continuam os do DS.
- * Vinho = marca; verde-pinheiro = estado "agora"; dourado = só enfeite.
- * Claro e escuro com o mesmo matiz, luminosidade espelhada.
- */
-:root {
-  --bg: #f7f0e4;
-  --surface: #fffaf2;
-  --text: #2a1a14;
-  --muted: #6b5546;
-  --line: #e5d6bf;
-  --accent: #8e1c2c;
-  --accent-soft: #f5e1dd;
-  --on-accent: #fffaf2;
-  --on-accent-muted: #f3d5cf;
-  --ornament: #a8750a;
-  --ornament-on-accent: #f2cf6b;
-  --shadow: 0 0.625rem 1.875rem rgba(142, 28, 44, 0.1);
-  --danger: #b42318;
-  --danger-soft: #fce6e1;
+  /* item escolhido (dia, pessoa) */
+  --pick: #1b2d4f;
+  --on-pick: #f7efe0;
+  --pick-sub: #e9c46a;
+  --glow-gold: rgba(255, 203, 92, 0.55);
+  --glow-warm: rgba(255, 214, 120, 0.45);
+  --glow-red: rgba(255, 120, 100, 0.45);
+  --glow-green: rgba(140, 230, 170, 0.32);
+
+  /* estados (o DS só tem danger e notice) */
+  --success: #1f6b45;
+  --success-soft: #e0efe5;
   --notice: #85560a;
   --notice-soft: #fbedd2;
+  --danger: #b42318;
+  --danger-soft: #fce6e1;
 }
 
 :root[data-theme="dark"] {
-  --bg: #1a1210;
-  --surface: #251b17;
-  --sunken: #120c0a;
-  --text: #f6ece2;
-  --muted: #bfab9b;
-  --line: #3b2d27;
-  --accent: #eaa2a6;
-  --accent-soft: #3d1d21;
-  --on-accent: #1a1210;
-  --on-accent-muted: #4a1e24;
-  --ornament: #e2b64e;
-  --ornament-on-accent: #7a4f00;
-  --shadow: 0 0.625rem 1.875rem rgba(0, 0, 0, 0.35);
+  --bg: #0b1426;
+  --surface: #15213a;
+  --sunken: #070d1a;
+  --text: #f3ede2;
+  --muted: #a9b4c8;
+  --line: #26344f;
+  --accent: #e9c46a;
+  --accent-soft: #2b3550;
+  --on-accent: #1b1300;
+  --ornament: #e9c46a;
+  --shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.35);
+
+  --night: #060d1c;
+  --night-2: #13213d;
+  --night-card: #1c2b4b;
+
+  --pick: #e9c46a;
+  --on-pick: #1b1300;
+  --pick-sub: #3d2c00;
+
   --success: #8fd3a8;
   --success-soft: #16301f;
-  --danger: #ff9b91;
-  --danger-soft: #3a1f22;
   --notice: #f1c36b;
   --notice-soft: #3a2f17;
+  --danger: #ff9b91;
+  --danger-soft: #3a1f22;
 }

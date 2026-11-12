@@ -27,3 +27,9 @@
 ## D5. Modo offline com service worker
 **Decisão:** guarda os arquivos do guia no celular e responde do cache, atualizando em segundo plano.
 **Consequência:** a cada mudança no conteúdo, subir `VERSION` em `site/sw.js`; a atualização aparece na segunda abertura.
+
+## D6. Tema "Natal Luz à noite" e fonte Fraunces (substitui a paleta da D3)
+**Contexto:** a paleta vinho e creme da D3 ficou fraca para a Nathaly ("bem natalino" era o pedido).
+**Decisão:** comparei 3 direções lado a lado (A: Vila de Natal, verde com pinheiros; B: Cartão de Natal, vermelho com xadrez; C: Natal Luz à noite). A Nathaly escolheu a C: topo azul-noite com luzes desfocadas e dourado em todas as telas, conteúdo em creme, paradas como lâmpadas acesas e frases de boas-vindas por dia.
+**Nova dependência:** fonte Fraunces (SIL OFL), a mesma do roteiro original, baixada do pacote `@fontsource-variable/fraunces@5.1.1` e hospedada em `site/fonts/`. Só títulos; o texto segue Inter (DS).
+**Consequências:** a estrutura da D3 continua (DS copiado sem edição; `guia.css` sobrescreve cores e escala). Contraste AA conferido por script nas cores do creme e da faixa noturna, nos dois temas.

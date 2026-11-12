@@ -32,15 +32,21 @@ const ratio = (a, b) => {
 
 // [frente, fundo, mínimo]: 4.5 para texto; 3 para ícone e marca de seleção.
 const PAIRS = [
+  // conteúdo claro (creme)
   ["text", "bg", 4.5], ["text", "surface", 4.5], ["text", "sunken", 4.5], ["text", "accent-soft", 4.5],
   ["text", "notice-soft", 4.5], ["text", "danger-soft", 4.5], ["text", "success-soft", 4.5],
-  ["muted", "bg", 4.5], ["muted", "surface", 4.5], ["muted", "sunken", 4.5], ["muted", "accent-soft", 4.5],
-  ["accent", "bg", 4.5], ["accent", "surface", 4.5], ["accent", "accent-soft", 4.5], ["on-accent", "accent", 4.5],
-  ["success", "success-soft", 4.5], ["success", "surface", 4.5], ["success", "sunken", 3],
-  ["notice", "notice-soft", 4.5], ["danger", "danger-soft", 4.5], ["danger", "surface", 4.5],
-  ["surface", "success", 3],
-  ["on-accent-muted", "accent", 4.5], ["ornament-on-accent", "accent", 3], ["ornament", "bg", 3], ["ornament", "surface", 3],
-  ["accent", "sunken", 4.5], ["ornament", "accent-soft", 3],
+  ["muted", "bg", 4.5], ["muted", "surface", 4.5], ["muted", "sunken", 4.5],
+  ["accent", "bg", 4.5], ["accent", "surface", 4.5], ["on-accent", "accent", 4.5],
+  ["ornament", "bg", 4.5], ["ornament", "surface", 4.5], ["ornament", "sunken", 3],
+  ["success", "success-soft", 4.5], ["success", "surface", 4.5], ["surface", "success", 3],
+  ["notice", "notice-soft", 4.5], ["notice", "surface", 3],
+  ["danger", "danger-soft", 4.5], ["danger", "surface", 4.5],
+  // faixa noturna
+  ["on-night", "night", 4.5], ["on-night", "night-2", 4.5], ["on-night", "night-card", 4.5],
+  ["on-night-muted", "night", 4.5], ["on-night-muted", "night-2", 4.5], ["on-night-muted", "night-card", 4.5],
+  ["gold", "night", 4.5], ["gold", "night-2", 4.5], ["gold", "night-card", 4.5], ["on-gold", "gold", 4.5],
+  ["live-on-night", "night-2", 3], ["live-on-night", "night-card", 3],
+  ["on-pick", "pick", 4.5], ["pick-sub", "pick", 4.5],
 ];
 
 let fail = 0;
