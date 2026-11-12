@@ -73,6 +73,11 @@ export function leaveTime(stop) {
 
 export const moveOf = (stop) => stop.trip || stop.leg || null;
 
+// Refeições do dia, na ordem em que acontecem: [{ meal, t, i }].
+export const MEALS = ["cafe", "almoco", "lanche", "jantar"];
+export const mealsOf = (day) =>
+  day.stops.map((s, i) => ({ meal: s.meal, t: s.t, i })).filter((m) => m.meal);
+
 // Soma das faixas de preço de Uber previstas no dia: [mínimo, máximo] ou null.
 export function uberRange(day) {
   let lo = 0;

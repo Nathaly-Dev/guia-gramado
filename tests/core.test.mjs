@@ -57,9 +57,24 @@ test("cartão ao vivo antes, durante e depois da viagem", () => {
   assert.deepEqual(liveState(DAYS, { date: "2026-11-29", min: 600 }), { phase: "after" });
   const s = liveState(DAYS, { date: "2026-11-27", min: toMin("17:00") });
   assert.equal(s.phase, "during");
-  assert.equal(DAYS[s.di].stops[s.nowIdx].title, "Volta ao hotel");
+  assert.equal(DAYS[s.di].stops[s.nowIdx].title, "Lanche da tarde no hotel");
   assert.equal(DAYS[s.di].stops[s.nextIdx].title, "Uber até o Gatzz");
   assert.deepEqual(s.leave, { at: "17:15", inMin: 15 });
+});
+
+test("todo dia tem café, almoço, lanche e jantar, nessa ordem", () => {
+  for (const d of DAYS) {
+    const meals = d.stops.filter((s) => s.meal).map((s) => s.meal);
+    assert.deepEqual(meals, ["cafe", "almoco", "lanche", "jantar"], `refeições de ${d.date}: ${meals.join(", ")}`);
+  }
+});
+
+test("cada parada é um lugar só (sem listas de vários pontos no título)", () => {
+  for (const d of DAYS) {
+    for (const s of d.stops) {
+      assert.ok(!/ e (a |o )?(Praça|Igreja|Museu|Rua|Casa|Vila|Catedral|Fonte|Lago)/.test(s.title), `parada misturada: ${d.date} ${s.t} ${s.title}`);
+    }
+  }
 });
 
 test("dias até a viagem atravessam o mês", () => {

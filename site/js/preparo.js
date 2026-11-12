@@ -86,6 +86,7 @@ export const PACKING = [
       { id: "jbl", who: "nathaly", text: "Caixinha JBL e cabo de carregar" },
       { id: "iptv", who: "nathaly", text: "Aparelho de IPTV, fonte e cabo HDMI", note: "Só funciona se a TV do quarto tiver entrada HDMI livre e o Wi-Fi do hotel aguentar vídeo." },
       { id: "controle", who: "nathaly", text: "Controle" },
+      { id: "selfie", who: "nathaly", text: "Pau de selfie tripé", note: "Vai fechado, dentro da mala de mão." },
       { id: "fone", who: "mae", text: "Fone de ouvido" },
       { id: "bivolt", who: "both", text: "Secador e chapinha só se forem 220 V ou bivolt", note: "Gramado é 220 V: aparelho 127 V queima." },
       { id: "benjamim", who: "nathaly", text: "Um benjamim ou régua pequena", note: "Com celulares, notebook, JBL e power bank, as tomadas do quarto não bastam." },

@@ -4,6 +4,7 @@ import * as P from "./preparo.js";
 import {
   toMin, fmtH, nowInSP, statusFor, stopEnd, leaveTime, moveOf, uberRange, paidCount,
   liveState, durationLabel, daysUntil, describeCode, parseForecast, weatherAlerts, wearAdvice,
+  MEALS, mealsOf,
 } from "./core.js";
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -367,6 +368,16 @@ function renderDay(n = now()) {
        <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${d.stops.length}" aria-valuenow="${doneCount}" aria-label="Paradas feitas hoje"><span style="width:${Math.round((doneCount / d.stops.length) * 100)}%"></span></div></div>`
     : "";
 
+  const MEAL_INFO = { cafe: ["cup", "Café"], almoco: ["plate", "Almoço"], lanche: ["candy", "Lanche"], jantar: ["plate", "Jantar"] };
+  const meals = mealsOf(d);
+  const mealRow = MEALS.map((m) => {
+    const hit = meals.find((x) => x.meal === m);
+    const [ico, label] = MEAL_INFO[m];
+    return hit
+      ? `<button class="fact meal num" type="button" data-goto="${dayIdx}-${hit.i}">${icon(ico)}${label} ${fmtH(hit.t)}</button>`
+      : `<span class="state state-danger">${icon("alert")}Sem ${label.toLowerCase()}</span>`;
+  }).join("");
+
   $("#day").innerHTML = `
     <div class="day-head">
       <p class="eyebrow">${icon("star")}Dia ${dayIdx + 1} de ${DAYS.length}</p>
@@ -382,6 +393,7 @@ function renderDay(n = now()) {
         ${uber ? `<span class="fact num">${icon("car")}Uber previsto ${brl(uber[0])} a ${uber[1]}</span>` : ""}
         ${paid ? `<span class="fact num">${icon("ticket")}${paid} já ${paid === 1 ? "pago" : "pagos"}</span>` : ""}
       </div>
+      <div class="meals" aria-label="Refeições do dia"><span class="meals-label">Refeições</span>${mealRow}</div>
       ${progress}
     </div>
     ${notes ? `<div class="block">${notes}</div>` : ""}
@@ -407,6 +419,7 @@ function goToStop(di, si) {
   dayIdx = di;
   renderRoteiro();
   const el = document.getElementById(`stop-${di}-${si}`);
+  if (el) el.closest(".done-group")?.setAttribute("open", "");
   if (el) el.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
 }
 
