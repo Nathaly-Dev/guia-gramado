@@ -1,0 +1,104 @@
+/*
+ * Tokens do guia: o que o design system v0.1 ainda não tem.
+ * Tudo aqui é proposta para subir ao design system (ver docs/decisions.md, D3).
+ * Claro é o padrão; o escuro só entra com data-theme="dark" (escolha da pessoa).
+ */
+
+@font-face {
+  font-family: "Inter";
+  src: url("../fonts/inter-latin-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("../fonts/space-grotesk-latin-wght-normal.woff2") format("woff2");
+  font-weight: 300 700;
+  font-display: swap;
+}
+
+:root {
+  /* tipo: 6 tamanhos */
+  --fs-1: 0.8125rem;
+  --fs-2: 0.9375rem;
+  --fs-3: 1.0625rem;
+  --fs-4: 1.25rem;
+  --fs-5: 1.5rem;
+  --fs-6: 2rem;
+
+  /* espaço: múltiplos de 4px */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.5rem;
+  --sp-6: 2rem;
+  --sp-7: 3rem;
+
+  /* raios usados no guia: 3 (sm, lg, pill) vêm do DS */
+
+  /* movimento: 1 curva, 1 duração */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur: 0.2s;
+
+  /* toque e largura de leitura */
+  --tap: 2.75rem;
+  --col: 42rem;
+  --col-wide: 68rem;
+  --nav-h: 4.25rem;
+
+  /* proposta: estado "agora/ok" (o DS só tem danger e notice) */
+  --success: #1f5f3f;
+  --success-soft: #e2efe5;
+
+  /* proposta: camada de fundo um degrau abaixo da página */
+  --sunken: #efe5d3;
+}
+
+/*
+ * Tema natalino do guia (pedido da Nathaly): troca só as cores do DS.
+ * Fontes, escala, raios e componentes continuam os do DS.
+ * Vinho = marca; verde-pinheiro = estado "agora"; dourado = só enfeite.
+ * Claro e escuro com o mesmo matiz, luminosidade espelhada.
+ */
+:root {
+  --bg: #f7f0e4;
+  --surface: #fffaf2;
+  --text: #2a1a14;
+  --muted: #6b5546;
+  --line: #e5d6bf;
+  --accent: #8e1c2c;
+  --accent-soft: #f5e1dd;
+  --on-accent: #fffaf2;
+  --on-accent-muted: #f3d5cf;
+  --ornament: #a8750a;
+  --ornament-on-accent: #f2cf6b;
+  --shadow: 0 0.625rem 1.875rem rgba(142, 28, 44, 0.1);
+  --danger: #b42318;
+  --danger-soft: #fce6e1;
+  --notice: #85560a;
+  --notice-soft: #fbedd2;
+}
+
+:root[data-theme="dark"] {
+  --bg: #1a1210;
+  --surface: #251b17;
+  --sunken: #120c0a;
+  --text: #f6ece2;
+  --muted: #bfab9b;
+  --line: #3b2d27;
+  --accent: #eaa2a6;
+  --accent-soft: #3d1d21;
+  --on-accent: #1a1210;
+  --on-accent-muted: #4a1e24;
+  --ornament: #e2b64e;
+  --ornament-on-accent: #7a4f00;
+  --shadow: 0 0.625rem 1.875rem rgba(0, 0, 0, 0.35);
+  --success: #8fd3a8;
+  --success-soft: #16301f;
+  --danger: #ff9b91;
+  --danger-soft: #3a1f22;
+  --notice: #f1c36b;
+  --notice-soft: #3a2f17;
+}

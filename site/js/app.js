@@ -1,0 +1,641 @@
+// Interface do guia: navegação, roteiro ao vivo, tempo, voo, mala e dicas.
+import { DAYS, BEFORE } from "./roteiro.js";
+import * as P from "./preparo.js";
+import {
+  toMin, fmtH, nowInSP, statusFor, stopEnd, leaveTime, moveOf, uberRange, paidCount,
+  liveState, durationLabel, daysUntil, describeCode, parseForecast, weatherAlerts, wearAdvice,
+} from "./core.js";
+
+const $ = (s, el = document) => el.querySelector(s);
+const ESC = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ESC[c]);
+const icon = (name, cls = "") => `<svg class="i ${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+
+// localStorage pode falhar (aba anônima, bloqueio): o guia funciona sem ele.
+const store = {
+  get(key, fallback) {
+    try {
+      const v = localStorage.getItem(key);
+      return v == null ? fallback : JSON.parse(v);
+    } catch (_) {
+      return fallback;
+    }
+  },
+  set(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (_) {
+      // sem armazenamento: só não lembra a escolha
+    }
+  },
+};
+
+const enc = encodeURIComponent;
+const mapsSearch = (q) => `https://www.google.com/maps/search/?api=1&query=${enc(q)}`;
+const mapsRoute = (q, mode) =>
+  `https://www.google.com/maps/dir/?api=1&destination=${enc(q)}&travelmode=${mode === "walk" ? "walking" : "driving"}`;
+const uberLink = (q) =>
+  `https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[formatted_address]=${enc(q)}`;
+const ext = 'target="_blank" rel="noopener noreferrer"';
+
+const brl = (n) => `R$ ${n}`;
+const range = ([a, b], unit = "") => (a === b ? `${a}${unit}` : `${a} a ${b}${unit}`);
+
+function fmtDate(iso) {
+  const d = new Date(`${iso}T12:00:00Z`);
+  const wd = new Intl.DateTimeFormat("pt-BR", { weekday: "short", timeZone: "UTC" }).format(d).replace(".", "");
+  return `${wd} ${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+}
+
+// ---------- relógio (real ou simulado) ----------
+let SIM = null;
+const now = () => SIM || nowInSP();
+
+// ---------- deslocamentos ----------
+const MODE = {
+  walk: { icon: "walk", name: "A pé" },
+  uber: { icon: "car", name: "Uber" },
+  car: { icon: "car", name: "Carro" },
+  bus: { icon: "bus", name: "Bustour" },
+  flight: { icon: "plane", name: "Voo" },
+};
+
+function moveText(mv) {
+  const parts = [mv.label || MODE[mv.mode].name];
+  if (mv.min) parts.push(mv.min[1] >= 60 ? `cerca de ${durationLabel(mv.min[1])}` : range(mv.min, " min"));
+  if (mv.dist) parts.push(mv.dist);
+  if (mv.price) parts.push(`${brl(mv.price[0])} a ${mv.price[1]}`);
+  return parts.join(" · ");
+}
+
+function moveHTML(mv, cls = "move") {
+  return `<p class="${cls}">${icon(MODE[mv.mode].icon)}<span class="tnum">${esc(moveText(mv))}</span>${
+    mv.alt ? `<span class="alt">${esc(mv.alt)}</span>` : ""
+  }</p>`;
+}
+
+const wantsUber = (s) => {
+  const mv = moveOf(s);
+  return Boolean(s.uberTo || (mv && (mv.mode === "uber" || /uber/i.test(mv.alt || ""))));
+};
+const uberDest = (s) => s.uberTo || s.addr || s.place;
+
+// ---------- clima ----------
+const WX_KEY = "wx:v1";
+const WX_URL =
+  "https://api.open-meteo.com/v1/forecast?latitude=-29.3788&longitude=-50.8739" +
+  "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_speed_10m_max" +
+  "&hourly=temperature_2m&timezone=America%2FSao_Paulo&forecast_days=16";
+const WX_MAX_AGE = 60 * 60 * 1000;
+
+let WX = store.get(WX_KEY, null); // { at, days }
+let wxState = "idle"; // idle | loading | error
+
+async function loadWeather(force = false) {
+  if (!force && WX && Date.now() - WX.at < WX_MAX_AGE) return;
+  wxState = "loading";
+  renderWeatherViews();
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const res = await fetch(WX_URL, { signal: ctrl.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const days = parseForecast(await res.json());
+    if (!Object.keys(days).length) throw new Error("previsão vazia");
+    WX = { at: Date.now(), days };
+    store.set(WX_KEY, WX);
+    wxState = "idle";
+  } catch (_) {
+    wxState = "error";
+  } finally {
+    clearTimeout(timer);
+  }
+  renderWeatherViews();
+}
+
+const ALERT_ICON = { rain: "rain", cold: "thermo", wind: "wind", hot: "sun" };
+const alertHTML = (a) => `<p class="note note-${a.level}">${icon(ALERT_ICON[a.kind])}<span>${esc(a.text)}</span></p>`;
+
+const forecastFor = (date) => (WX && WX.days[date]) || null;
+
+function renderWeatherViews() {
+  renderDay();
+  if (currentTab === "tempo") renderTempo();
+}
+
+// ---------- navegação ----------
+const TABS = ["roteiro", "tempo", "voo", "mala", "dicas"];
+let currentTab = "roteiro";
+
+function route() {
+  const id = location.hash.slice(1);
+  const tab = TABS.includes(id) ? id : "roteiro";
+  const changed = tab !== currentTab;
+  currentTab = tab;
+  for (const t of TABS) $(`#${t}`).hidden = t !== tab;
+  document.querySelectorAll(".nav a").forEach((a) => {
+    if (a.dataset.tab === tab) a.setAttribute("aria-current", "page");
+    else a.removeAttribute("aria-current");
+  });
+  if (tab === "roteiro") renderRoteiro();
+  if (tab === "tempo") renderTempo();
+  if (tab === "voo") renderVoo();
+  if (tab === "mala") renderMala();
+  if (tab === "dicas") renderDicas();
+  if (changed) window.scrollTo(0, 0);
+}
+
+// ---------- tema ----------
+function syncThemeButton() {
+  const dark = document.documentElement.dataset.theme === "dark";
+  const btn = $("#themeBtn");
+  btn.setAttribute("aria-pressed", String(dark));
+  btn.setAttribute("aria-label", dark ? "Usar tema claro" : "Usar tema escuro");
+  const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+  $('meta[name="theme-color"]').setAttribute("content", bg);
+}
+
+function toggleTheme() {
+  const dark = document.documentElement.dataset.theme !== "dark";
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+  try {
+    localStorage.setItem("theme", dark ? "dark" : "light");
+  } catch (_) {
+    // sem armazenamento: vale só nesta visita
+  }
+  syncThemeButton();
+}
+
+// ---------- roteiro ----------
+let dayIdx = null;
+let lastSignature = "";
+
+function defaultDay(n) {
+  const i = DAYS.findIndex((d) => d.date === n.date);
+  if (i >= 0) return i;
+  return n.date < DAYS[0].date ? 0 : DAYS.length - 1;
+}
+
+function renderRoteiro() {
+  const n = now();
+  if (dayIdx === null) dayIdx = defaultDay(n);
+  renderLive(n);
+  renderDays(n);
+  renderDay(n);
+}
+
+function stateTag(st) {
+  if (st === "now") return `<span class="state state-now">${icon("now")}Agora</span>`;
+  if (st === "next") return `<span class="state state-next">${icon("clock")}Próximo</span>`;
+  if (st === "done") return `<span class="state state-done">${icon("check")}Feito</span>`;
+  return "";
+}
+
+function renderLive(n) {
+  const s = liveState(DAYS, n);
+  let html = "";
+  if (s.phase === "before") {
+    const tasks = BEFORE.map((t) => {
+      const done = n.date > t.date || (n.date === t.date && n.min >= toMin(t.t) + 60);
+      return `<li class="${done ? "is-done" : ""}">${icon(done ? "check" : "clock")}<span>${esc(t.text)}</span><span class="when num">${esc(fmtDate(t.date))} · ${fmtH(t.t)}</span></li>`;
+    }).join("");
+    html = `
+      <section class="live" aria-labelledby="live-t">
+        <p class="eyebrow">${icon("plane")}Contagem regressiva</p>
+        <h2 class="live-title num" id="live-t">${s.days === 1 ? "Falta 1 dia" : `Faltam ${s.days} dias`}</h2>
+        <p class="live-sub">Saída ter 24/11 às 9h30 · voo às 12h55</p>
+        <ul class="todo">${tasks}</ul>
+        <div class="actions"><a class="btn" href="#mala">${icon("bag")}Conferir a mala</a></div>
+      </section>`;
+  } else if (s.phase === "after") {
+    html = `
+      <section class="live" aria-labelledby="live-t">
+        <p class="eyebrow">${icon("star")}Viagem concluída</p>
+        <h2 class="live-title" id="live-t">Que viagem linda!</h2>
+        <p class="live-sub">Hora de ver as fotos.</p>
+      </section>`;
+  } else {
+    const day = DAYS[s.di];
+    let head;
+    if (s.nowIdx >= 0) {
+      const cur = day.stops[s.nowIdx];
+      head = `
+        <p class="eyebrow">${icon("now")}Agora · até ${fmtH(stopEnd(day, s.nowIdx))}</p>
+        <h2 class="live-title" id="live-t">${esc(cur.title)}</h2>
+        ${cur.addr ? `<p class="live-sub">${esc(cur.addr)}</p>` : ""}`;
+    } else if (s.nextIdx >= 0) {
+      head = `<p class="eyebrow">${icon("clock")}Tempo livre</p><h2 class="live-title" id="live-t">Aproveitem!</h2>`;
+    } else {
+      const tomorrow = DAYS[s.di + 1];
+      head = `
+        <p class="eyebrow">${icon("moon")}Dia encerrado</p>
+        <h2 class="live-title" id="live-t">Bom descanso!</h2>
+        ${tomorrow ? `<p class="live-sub">Amanhã: ${esc(tomorrow.name)}</p>` : ""}`;
+    }
+    let next = "";
+    if (s.nextIdx >= 0) {
+      const st = day.stops[s.nextIdx];
+      const mv = moveOf(st);
+      const urgent = s.leave && s.leave.inMin <= 10;
+      const leave = s.leave
+        ? `<p class="leave">${
+            s.leave.inMin <= 0
+              ? `<span class="state state-danger">${icon("alert")}Hora de sair</span>`
+              : `<span>Saiam às</span><strong class="num">${fmtH(s.leave.at)}</strong>${
+                  urgent ? `<span class="state state-next">${icon("alert")}em ${s.leave.inMin} min</span>` : `<span class="num">em ${durationLabel(s.leave.inMin)}</span>`
+                }`
+          }</p>`
+        : "";
+      const go = st.place && (!mv || mv.mode !== "bus")
+        ? `<a class="btn primary" href="${mapsRoute(st.place, mv ? mv.mode : "walk")}" ${ext}>${icon("map")}Como chegar</a>`
+        : st.place ? `<a class="btn primary" href="${mapsSearch(st.place)}" ${ext}>${icon("map")}Ver no mapa</a>` : "";
+      const uber = wantsUber(st) ? `<a class="btn" href="${uberLink(uberDest(st))}" ${ext}>${icon("car")}Chamar Uber</a>` : "";
+      next = `
+        <div class="live-next">
+          <p class="eyebrow">Próximo · <span class="num">${fmtH(st.t)}</span> · <span class="num">em ${durationLabel(s.nextInMin)}</span></p>
+          <p class="live-next-title">${esc(st.title)}</p>
+          ${leave}
+          ${mv ? moveHTML(mv) : ""}
+          ${go || uber ? `<div class="actions">${go}${uber}<button class="btn" type="button" data-goto="${s.di}-${s.nextIdx}">Ver no roteiro</button></div>` : ""}
+        </div>`;
+    }
+    html = `<section class="live" aria-labelledby="live-t">${head}${next}</section>`;
+  }
+  $("#live").innerHTML = html;
+}
+
+function renderDays(n) {
+  $("#days").innerHTML = DAYS.map((d, i) => {
+    const sub = d.date === n.date ? "Hoje" : n.date > d.date ? "Feito" : `${d.stops.length} paradas`;
+    return `<button class="day-btn" type="button" role="tab" aria-selected="${i === dayIdx}" data-day="${i}">
+      <strong>${esc(d.tab)}</strong><small>${sub}</small></button>`;
+  }).join("");
+}
+
+function weatherFact(date) {
+  const f = forecastFor(date);
+  if (!f) return "";
+  const c = describeCode(f.code);
+  const rain = f.rainPct >= 40 ? ` · chuva ${f.rainPct}%` : "";
+  return `<a class="fact num" href="#tempo">${icon(c.icon)}${f.min}° a ${f.max}°${rain}</a>`;
+}
+
+function stopBody(s, di, si) {
+  const mv = moveOf(s);
+  const meta = [
+    s.photo && `<li>${icon("camera")}<span>Foto: ${esc(s.photo)}</span></li>`,
+    s.tip && `<li>${icon("bulb")}<span>Dica: ${esc(s.tip)}</span></li>`,
+    s.cost && !s.paid && `<li>${icon("coin")}<span>Valor: ${esc(s.cost)}</span></li>`,
+  ].filter(Boolean).join("");
+  const actions = [
+    s.place && `<a class="btn" href="${mapsSearch(s.place)}" ${ext}>${icon("map")}Mapa</a>`,
+    wantsUber(s) && `<a class="btn" href="${uberLink(uberDest(s))}" ${ext}>${icon("car")}Uber</a>`,
+  ].filter(Boolean).join("");
+  return `
+    <h3 class="stop-title" id="t-${di}-${si}">${esc(s.title)}</h3>
+    <p class="stop-desc">${esc(s.desc)}</p>
+    ${s.addr ? `<p class="addr">${icon("pin")}<span>${esc(s.addr)}</span></p>` : ""}
+    ${s.trip ? moveHTML(mv) : ""}
+    ${meta ? `<ul class="stop-meta">${meta}</ul>` : ""}
+    ${actions ? `<div class="actions">${actions}</div>` : ""}`;
+}
+
+function renderDay(n = now()) {
+  if (dayIdx === null) return;
+  const d = DAYS[dayIdx];
+  const uber = uberRange(d);
+  const paid = paidCount(d);
+  const alerts = weatherAlerts(forecastFor(d.date));
+  const notes = [
+    ...alerts.map(alertHTML),
+    ...(d.notes || []).map((t) => `<p class="note note-info">${icon("info")}<span>${esc(t)}</span></p>`),
+  ].join("");
+
+  const items = d.stops.map((s, i) => {
+    const st = statusFor(d, i, n);
+    const leg = s.leg ? `<div class="tl-leg">${icon(MODE[s.leg.mode].icon)}<span class="tnum">${esc(moveText(s.leg))}</span>${s.leg.alt ? `<span>${esc(s.leg.alt)}</span>` : ""}</div>` : "";
+    const lt = leaveTime(s);
+    const leaveTag = !st.match(/done|now/) && lt && !s.trip && lt !== s.t ? `<span class="state state-paid num">${icon("walk")}Sair ${fmtH(lt)}</span>` : "";
+    const paidTag = s.paid ? `<span class="state state-paid">${icon("ticket")}Já pago</span>` : "";
+    const mark = st === "now" ? "now" : st === "next" ? "clock" : st === "done" ? "check" : "pin";
+    const card = st === "done"
+      ? `<details class="stop" aria-labelledby="t-${dayIdx}-${i}">
+          <summary><span class="num">${fmtH(s.t)}</span><span class="t">${esc(s.title)}</span>${stateTag(st)}${icon("chevron", "chev")}</summary>
+          <div class="stop-body">${stopBody(s, dayIdx, i)}</div>
+        </details>`
+      : `<article class="stop" aria-labelledby="t-${dayIdx}-${i}">
+          <div class="stop-head"><span class="stop-time num">${fmtH(s.t)}</span>${stateTag(st)}${paidTag}${leaveTag}</div>
+          ${stopBody(s, dayIdx, i)}
+        </article>`;
+    return `<li class="tl-item is-${st || "later"}" id="stop-${dayIdx}-${i}">${leg}<div class="tl-row"><span class="tl-mark">${icon(mark)}</span>${card}</div></li>`;
+  }).join("");
+
+  $("#day").innerHTML = `
+    <div class="day-head">
+      <h2 class="day-name">${esc(d.name)}</h2>
+      <p class="day-hint">${esc(d.hint)}</p>
+      <div class="facts">
+        ${weatherFact(d.date)}
+        <span class="fact num">${icon("pin")}${d.stops.length} paradas</span>
+        ${uber ? `<span class="fact num">${icon("car")}Uber previsto ${brl(uber[0])} a ${uber[1]}</span>` : ""}
+        ${paid ? `<span class="fact num">${icon("ticket")}${paid} já ${paid === 1 ? "pago" : "pagos"}</span>` : ""}
+      </div>
+    </div>
+    ${notes ? `<div class="block">${notes}</div>` : ""}
+    <ol class="tl">${items}</ol>
+    <p class="day-end">${icon("star")}Fim do dia. Bom descanso!</p>`;
+  lastSignature = signature(n);
+}
+
+// Só redesenha a linha do tempo quando algum status muda (preserva paradas abertas).
+const signature = (n) => `${dayIdx}|${n.date}|${DAYS[dayIdx].stops.map((_, i) => statusFor(DAYS[dayIdx], i, n)).join(",")}`;
+
+function tick() {
+  if (SIM || currentTab !== "roteiro") return;
+  const n = now();
+  renderLive(n);
+  if (signature(n) !== lastSignature) {
+    renderDays(n);
+    renderDay(n);
+  }
+}
+
+function goToStop(di, si) {
+  dayIdx = di;
+  renderRoteiro();
+  const el = document.getElementById(`stop-${di}-${si}`);
+  if (el) el.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+}
+
+// ---------- tempo ----------
+function renderTempo() {
+  const n = now();
+  const updated = WX ? new Date(WX.at) : null;
+  const updatedTxt = updated
+    ? `Atualizada às ${new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).format(updated)} de ${new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" }).format(updated)}`
+    : "Ainda sem previsão salva";
+  const status = wxState === "loading"
+    ? `<p class="note note-info">${icon("refresh")}<span>Buscando a previsão…</span></p>`
+    : wxState === "error"
+      ? `<p class="note note-notice">${icon("alert")}<span>Sem conexão com o serviço de previsão. ${WX ? "Mostrando a última previsão salva." : "Tentem de novo quando tiver internet."}</span></p>`
+      : "";
+
+  const cards = DAYS.map((d) => {
+    const f = forecastFor(d.date);
+    if (!f) {
+      const from = new Date(`${d.date}T12:00:00Z`);
+      from.setUTCDate(from.getUTCDate() - 15);
+      const fromIso = from.toISOString().slice(0, 10);
+      return `<article class="panel wx">
+        <div class="wx-top">${icon("clock", "wx-icon")}<div><p class="wx-day">${esc(fmtDate(d.date))}</p><p class="wx-cond">${esc(d.name)}</p></div></div>
+        <p class="source">${daysUntil(n.date, fromIso) > 0 ? `Previsão a partir de ${esc(fmtDate(fromIso))}.` : "Previsão indisponível no momento."}</p>
+      </article>`;
+    }
+    const c = describeCode(f.code);
+    const alerts = weatherAlerts(f).map(alertHTML).join("");
+    return `<article class="panel wx" aria-label="${esc(fmtDate(d.date))}">
+      <div class="wx-top">${icon(c.icon, "wx-icon")}
+        <div><p class="wx-day">${esc(fmtDate(d.date))}</p><p class="wx-cond">${esc(c.label)}</p></div>
+        <p class="wx-temp num">${f.max}°<small> / ${f.min}°</small></p>
+      </div>
+      <div class="wx-facts">
+        <span class="fact num">${icon("rain")}Chuva ${f.rainPct}% · ${String(f.rainMm).replace(".", ",")} mm</span>
+        ${f.night != null ? `<span class="fact num">${icon("moon")}${f.night}° às 21h</span>` : ""}
+        <span class="fact num">${icon("wind")}Vento ${f.wind} km/h</span>
+      </div>
+      ${alerts}
+      <p class="wx-wear">${icon("shirt")}<span>${esc(wearAdvice(f))}</span></p>
+    </article>`;
+  }).join("");
+
+  $("#tempo").innerHTML = `
+    <header class="sec-head">
+      <h1 class="sec-title" id="h-tempo">Previsão do tempo</h1>
+      <p class="sec-lead">Gramado e Canela, dia a dia da viagem, com alertas de frio, chuva e vento.</p>
+    </header>
+    <div class="wx-status">
+      <p class="source">${esc(updatedTxt)}</p>
+      <button class="btn" type="button" id="wxRefresh" ${wxState === "loading" ? "disabled" : ""}>${icon("refresh")}Atualizar</button>
+    </div>
+    ${status}
+    <div class="wx-grid">${cards}</div>
+    <section class="block" aria-labelledby="h-clima">
+      <h2 class="block-title" id="h-clima">${icon("thermo")}Como costuma ser em novembro</h2>
+      <div class="panel clima">
+        <div><strong class="num">14 °C</strong><span>mínima média</span></div>
+        <div><strong class="num">24 °C</strong><span>máxima média</span></div>
+        <div><strong class="num">160 mm</strong><span>chuva no mês</span></div>
+      </div>
+      <p class="source">Médias de 30 anos (Climatempo). Previsão: <a href="https://open-meteo.com/" ${ext}>Open-Meteo</a> (CC BY 4.0), atualizada a cada hora quando há internet.</p>
+    </section>`;
+}
+
+// ---------- voo ----------
+function renderVoo() {
+  const flights = P.FLIGHTS.map((f) => `
+    <article class="panel flight">
+      <p class="eyebrow">${esc(f.dir)} · ${esc(f.date)}</p>
+      <p class="flight-times num">${fmtH(f.dep)}${icon("plane")}${f.arr ? fmtH(f.arr) : "—"}</p>
+      <p class="flight-route">${esc(f.from)} → ${esc(f.to)}${f.arr ? "" : ". Chegada no cartão de embarque."}</p>
+    </article>`).join("");
+  const steps = P.FLIGHT_STEPS.map((s) => `
+    <li class="step"><div class="block">
+      <h3>${esc(s.title)}</h3>
+      <ul class="bullets">${s.items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>
+    </div></li>`).join("");
+  const rights = P.PASSENGER_RIGHTS.map((r) => `<div><dt class="num">${esc(r.after)}</dt><dd>${esc(r.right)}</dd></div>`).join("");
+
+  $("#voo").innerHTML = `
+    <header class="sec-head">
+      <h1 class="sec-title" id="h-voo">Voo</h1>
+      <p class="sec-lead">O primeiro voo de vocês, passo a passo. Azul, só com bagagem de mão.</p>
+    </header>
+    <div class="flights">${flights}</div>
+    <section class="block" aria-labelledby="h-passos">
+      <h2 class="block-title" id="h-passos">${icon("route")}Passo a passo</h2>
+      <ol class="steps">${steps}</ol>
+    </section>
+    <section class="block" aria-labelledby="h-direitos">
+      <h2 class="block-title" id="h-direitos">${icon("shield")}Se o voo atrasar</h2>
+      <dl class="panel rights">${rights}</dl>
+      <p class="source">Direitos da Resolução 400 da ANAC. Peçam no balcão da Azul.</p>
+    </section>
+    <p class="note note-info">${icon("info")}<span>Regras conferidas em 12/11/2026. Confirmem no app da Azul antes de sair de casa.</span></p>`;
+}
+
+// ---------- mala ----------
+let person = store.get("mala:person", "nathaly");
+
+function packItems(who) {
+  return P.PACKING.map((g) => ({ ...g, items: g.items.filter((i) => i.who === "both" || i.who === who) }))
+    .filter((g) => g.items.length);
+}
+
+function renderMala() {
+  const groups = packItems(person);
+  const checked = store.get(`mala:${person}`, {});
+  const all = groups.flatMap((g) => g.items);
+  const done = all.filter((i) => checked[i.id]).length;
+  const pct = all.length ? Math.round((done / all.length) * 100) : 0;
+  const who = P.PEOPLE.find((p) => p.id === person);
+
+  const groupHTML = groups.map((g) => `
+    <fieldset class="check-group">
+      <legend class="block-title">${icon(g.icon)}${esc(g.title)}</legend>
+      ${g.items.map((i) => `
+        <label class="check">
+          <input type="checkbox" data-check="${esc(i.id)}" ${checked[i.id] ? "checked" : ""}>
+          <span class="check-text">${esc(i.text)}</span>
+          ${i.note ? `<span class="check-note">${esc(i.note)}</span>` : ""}
+        </label>`).join("")}
+    </fieldset>`).join("");
+
+  const out = store.get("mala:checkout", {});
+  const checkout = P.CHECKOUT.map((t, i) => `
+    <label class="check">
+      <input type="checkbox" data-out="${i}" ${out[i] ? "checked" : ""}>
+      <span class="check-text">${esc(t)}</span>
+    </label>`).join("");
+
+  $("#mala").innerHTML = `
+    <header class="sec-head">
+      <h1 class="sec-title" id="h-mala">Mala</h1>
+      <p class="sec-lead">Uma mala de mão de 10 kg e uma mochila de costas para cada uma. Cada celular guarda as próprias marcações.</p>
+    </header>
+    <div class="seg" role="tablist" aria-label="De quem é a lista">
+      ${P.PEOPLE.map((p) => `<button type="button" role="tab" aria-selected="${p.id === person}" data-person="${p.id}">${esc(p.name)}</button>`).join("")}
+    </div>
+    <div class="progress" aria-live="polite">
+      <div class="progress-row"><span>Lista de ${esc(who.name)}</span><span class="num">${done} de ${all.length} na mala</span></div>
+      <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Progresso da mala"><span style="width:${pct}%"></span></div>
+    </div>
+    <section class="block" aria-label="Dicas de ${esc(who.name)}">
+      <h2 class="block-title">${icon("heart")}Para ${person === "mae" ? "a mãe" : "a Nathaly"}</h2>
+      <ul class="panel bullets">${P.PERSON_TIPS[person].map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
+    </section>
+    ${groupHTML}
+    <div class="actions"><button class="btn" type="button" id="resetMala">Desmarcar a lista de ${esc(who.name)}</button></div>
+    <section class="block" aria-labelledby="h-arrumar">
+      <h2 class="block-title" id="h-arrumar">${icon("bag")}Como arrumar a mala</h2>
+      <ul class="panel bullets">${P.PACK_TIPS.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
+    </section>
+    <section class="block" aria-labelledby="h-proibido">
+      <h2 class="block-title" id="h-proibido">${icon("x")}Não pode levar</h2>
+      <ul class="panel x-list">${P.FORBIDDEN.map((f) => `<li>${icon("x")}<strong>${esc(f.title)}</strong><span>${esc(f.text)}</span></li>`).join("")}</ul>
+    </section>
+    <section class="block" aria-labelledby="h-compras">
+      <h2 class="block-title" id="h-compras">${icon("coin")}Compras para trazer</h2>
+      <ul class="panel bullets">${P.SHOPPING.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
+    </section>
+    <fieldset class="check-group">
+      <legend class="block-title">${icon("bed")}Antes de sair do hotel (sáb 28)</legend>
+      ${checkout}
+    </fieldset>`;
+}
+
+// ---------- dicas ----------
+function renderDicas() {
+  const tips = P.TIPS.map((t) => `
+    <article class="panel tip">${icon(t.icon)}<h3>${esc(t.title)}</h3><p>${esc(t.text)}</p></article>`).join("");
+  const sos = P.EMERGENCY.map((e) => `<a class="btn" href="tel:${e.tel}"><strong class="num">${e.tel}</strong><span>${esc(e.label)}</span></a>`).join("");
+  $("#dicas").innerHTML = `
+    <header class="sec-head">
+      <h1 class="sec-title" id="h-dicas">Dicas</h1>
+      <p class="sec-lead">Para aproveitar Gramado sem rodar à toa.</p>
+    </header>
+    <div class="tips">${tips}</div>
+    <section class="block" aria-labelledby="h-sos">
+      <h2 class="block-title" id="h-sos">${icon("phone")}Emergência</h2>
+      <div class="sos">${sos}</div>
+      <a class="btn" href="${mapsSearch(P.HOSPITAL.place)}" ${ext}>${icon("map")}${esc(P.HOSPITAL.name)}, no mapa</a>
+    </section>`;
+}
+
+// ---------- eventos ----------
+function bind() {
+  window.addEventListener("hashchange", route);
+  $("#themeBtn").addEventListener("click", toggleTheme);
+
+  document.addEventListener("click", (e) => {
+    const dayBtn = e.target.closest("[data-day]");
+    if (dayBtn) {
+      dayIdx = Number(dayBtn.dataset.day);
+      renderDays(now());
+      renderDay(now());
+      return;
+    }
+    const go = e.target.closest("[data-goto]");
+    if (go) {
+      const [di, si] = go.dataset.goto.split("-").map(Number);
+      goToStop(di, si);
+      return;
+    }
+    const p = e.target.closest("[data-person]");
+    if (p) {
+      person = p.dataset.person;
+      store.set("mala:person", person);
+      renderMala();
+      return;
+    }
+    if (e.target.closest("#resetMala")) {
+      store.set(`mala:${person}`, {});
+      renderMala();
+      return;
+    }
+    if (e.target.closest("#wxRefresh")) loadWeather(true);
+  });
+
+  document.addEventListener("change", (e) => {
+    const c = e.target.closest("[data-check]");
+    if (c) {
+      const key = `mala:${person}`;
+      const state = store.get(key, {});
+      state[c.dataset.check] = c.checked;
+      store.set(key, state);
+      renderMala();
+      $(`[data-check="${c.dataset.check}"]`)?.focus();
+      return;
+    }
+    const o = e.target.closest("[data-out]");
+    if (o) {
+      const state = store.get("mala:checkout", {});
+      state[o.dataset.out] = o.checked;
+      store.set("mala:checkout", state);
+    }
+  });
+
+  const sel = $("#simDay");
+  sel.innerHTML = DAYS.map((d) => `<option value="${d.date}">${esc(d.tab)}</option>`).join("");
+  $("#simGo").addEventListener("click", () => {
+    const t = $("#simTime").value || "11:00";
+    SIM = { date: sel.value, min: toMin(t) };
+    dayIdx = DAYS.findIndex((d) => d.date === sel.value);
+    renderRoteiro();
+    window.scrollTo(0, 0);
+  });
+  $("#simOff").addEventListener("click", () => {
+    SIM = null;
+    dayIdx = null;
+    renderRoteiro();
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      tick();
+      loadWeather();
+    }
+  });
+  setInterval(tick, 30000);
+}
+
+bind();
+syncThemeButton();
+route();
+loadWeather();
+
+if ("serviceWorker" in navigator && location.protocol !== "file:") {
+  navigator.serviceWorker.register("sw.js").catch(() => {
+    // sem modo offline: o guia segue funcionando online
+  });
+}
+

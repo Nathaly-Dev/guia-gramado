@@ -1,0 +1,217 @@
+/* Cópia do design system Nathaly v0.1 (Projetos/design-system/components.css). Não editar: mude no DS e copie de novo. */
+/*
+ * Components — Nathaly. Needs tokens.css. Derived from the portfolio's style.css.
+ * Entries marked "proposed" are not in the portfolio yet.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 1.0625rem/1.6 var(--font-sans);
+  transition: background 0.35s, color 0.35s;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+code,
+kbd,
+pre {
+  font-family: var(--font-mono);
+}
+
+/* proposed: visible keyboard focus (the portfolio relies on browser defaults) */
+:focus-visible {
+  outline: 0.125rem solid var(--accent);
+  outline-offset: 0.125rem;
+}
+
+/* buttons */
+.btn {
+  display: inline-block;
+  padding: 0.625rem 1.25rem;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  transform: translateY(-0.125rem);
+  box-shadow: var(--shadow);
+}
+
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* card */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 1.375rem;
+}
+
+.card p {
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+/* tag / pill label */
+.tag {
+  display: inline-block;
+  padding: 0.1875rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius-pill);
+}
+
+/* form field */
+.field {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  font-size: 0.9375rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  transition: border-color 0.2s;
+}
+
+.field:focus {
+  border-color: var(--accent);
+}
+
+/* chat bubbles */
+.bubble {
+  max-width: 88%;
+  padding: 0.5625rem 0.8125rem;
+  font-size: 0.9062rem;
+  line-height: 1.5;
+  border-radius: 0.875rem;
+}
+
+.bubble.bot {
+  align-self: flex-start;
+  background: var(--accent-soft);
+  border-bottom-left-radius: 0.25rem;
+}
+
+.bubble.user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: var(--on-accent);
+  border-bottom-right-radius: 0.25rem;
+}
+
+/* source chip (pill with accent text) */
+.chip {
+  display: inline-block;
+  padding: 1px 0.5rem;
+  font-size: 0.75rem;
+  color: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+}
+
+/* proposed: feedback callouts */
+.callout {
+  padding: 0.75rem 1rem;
+  font-size: 0.9375rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.callout.error {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
+
+.callout.notice {
+  color: var(--notice);
+  background: var(--notice-soft);
+  border-color: var(--notice);
+}
+
+/* theme toggle */
+.theme {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 1.875rem;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.theme:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.theme .i-moon {
+  display: none;
+}
+
+:root[data-theme="dark"] .theme .i-sun {
+  display: none;
+}
+
+:root[data-theme="dark"] .theme .i-moon {
+  display: block;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme .i-sun {
+    display: none;
+  }
+
+  :root:not([data-theme="light"]) .theme .i-moon {
+    display: block;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}

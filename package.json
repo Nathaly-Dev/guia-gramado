@@ -1,0 +1,17 @@
+{
+  "name": "guia-gramado",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Guia de viagem ao vivo para Gramado e Canela no Natal Luz.",
+  "type": "module",
+  "scripts": {
+    "dev": "npx --yes serve@14.2.4 site -l 5180",
+    "test": "node --test \"tests/*.test.mjs\"",
+    "contrast": "node scripts/check-contrast.mjs",
+    "check": "npm run test && npm run contrast",
+    "icons": "python scripts/make-icons.py"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,10 @@
+# Roteiro antigo: fica só neste computador.
+_original/
+
+node_modules/
+.vercel/
+.env*
+!.env.example
+*.log
+.DS_Store
+Thumbs.db
