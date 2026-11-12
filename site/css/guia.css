@@ -84,6 +84,10 @@
   --glow-warm: rgba(255, 214, 120, 0.45);
   --glow-red: rgba(255, 120, 100, 0.45);
   --glow-green: rgba(140, 230, 170, 0.32);
+  --skyline: #070f20;
+  --snow: rgba(255, 255, 255, 0.85);
+  --hairline-night: rgba(233, 196, 106, 0.28);
+  --sky-h: 3.5rem;
 
   /* estados (o DS só tem danger e notice) */
   --success: #1f6b45;
@@ -110,6 +114,7 @@
   --night: #060d1c;
   --night-2: #13213d;
   --night-card: #1c2b4b;
+  --skyline: #020712;
 
   --pick: #e9c46a;
   --on-pick: #1b1300;

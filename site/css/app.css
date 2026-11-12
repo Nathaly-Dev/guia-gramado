@@ -67,7 +67,8 @@ a { color: var(--accent); }
   border-radius: var(--radius-sm);
 }
 .btn .i { width: 1.125rem; height: 1.125rem; }
-.btn.gold { color: var(--on-gold); background: var(--gold); border-color: var(--gold); }
+.btn.gold { color: var(--on-gold); background: var(--gold); border-color: var(--gold); box-shadow: 0 0.25rem 1rem var(--glow-gold); }
+.btn.gold:hover:not(:disabled) { box-shadow: 0 0.375rem 1.25rem var(--glow-gold); }
 .btn.ghost { color: var(--on-night); background: transparent; border-color: var(--on-night-muted); }
 .btn.ghost:hover { border-color: var(--gold); }
 
@@ -97,9 +98,10 @@ a { color: var(--accent); }
 .band {
   position: relative;
   isolation: isolate;
+  overflow: hidden;
   color: var(--on-night);
   margin: -1px calc(-1 * var(--sp-4)) 0;
-  padding: var(--sp-2) var(--sp-4) var(--sp-6);
+  padding: var(--sp-2) var(--sp-4) calc(var(--sp-5) + var(--sky-h));
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   background:
     radial-gradient(circle at 14% 18%, var(--glow-gold) 0 0.2rem, transparent 1.2rem),
@@ -126,6 +128,32 @@ a { color: var(--accent); }
     radial-gradient(circle at 38% 92%, var(--glow-gold) 0 0.15rem, transparent 1rem);
   opacity: 0.6;
 }
+/* neve: três camadas de flocos, cada uma num ritmo */
+.band::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.55;
+  background-image:
+    radial-gradient(circle, var(--snow) 0 0.0625rem, transparent 0.1rem),
+    radial-gradient(circle, var(--snow) 0 0.05rem, transparent 0.09rem),
+    radial-gradient(circle, var(--snow) 0 0.04rem, transparent 0.08rem);
+  background-size: 7rem 7rem, 11rem 11rem, 5rem 5rem;
+  background-position: 0 0, 3rem 2rem, 1rem 4rem;
+}
+/* silhueta de Gramado: igreja, pinheiros e casinhas com janelas acesas */
+.skyline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: var(--sky-h);
+  pointer-events: none;
+}
+.skyline rect { fill: url(#sky); }
 
 .top-in {
   display: flex;
@@ -173,6 +201,7 @@ a { color: var(--accent); }
   grid-template-columns: repeat(5, 1fr);
   padding: var(--sp-1) var(--sp-2) calc(var(--sp-1) + env(safe-area-inset-bottom));
   background: var(--night);
+  border-top: 1px solid var(--hairline-night);
 }
 .nav a {
   display: flex;
@@ -207,6 +236,10 @@ main:focus { outline: none; }
 
 .screen { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-5); }
 .screen[hidden] { display: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .screen:not([hidden]) { animation: rise 0.3s var(--ease); }
+  @keyframes rise { from { opacity: 0; transform: translateY(var(--sp-2)); } }
+}
 
 /* cabeçalho de seção (igual em todas as telas), dentro da faixa noturna */
 .sec-head { display: grid; gap: var(--sp-2); }
@@ -306,6 +339,8 @@ main:focus { outline: none; }
   box-shadow: 0 0 0 0.25rem var(--glow-green);
 }
 .live-now strong { color: var(--on-night); font-weight: 600; }
+.live-bar { height: 0.25rem; background: var(--night-card); border-radius: var(--radius-pill); overflow: hidden; }
+.live-bar span { display: block; height: 100%; background: var(--live-on-night); border-radius: var(--radius-pill); box-shadow: 0 0 0.5rem var(--glow-green); }
 .glass {
   display: grid;
   gap: var(--sp-2);
@@ -380,13 +415,16 @@ main:focus { outline: none; }
   scroll-snap-align: start;
   transition: background var(--dur) var(--ease);
 }
-.day-btn strong { font-size: var(--fs-2); font-weight: 700; }
-.day-btn small { font-size: var(--fs-1); color: var(--muted); }
-.day-btn[aria-selected="true"] { color: var(--on-pick); background: var(--pick); }
-.day-btn[aria-selected="true"] small { color: var(--pick-sub); }
+.day-btn .wd { font-size: var(--fs-1); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.day-btn .dn { font-family: var(--font-serif); font-size: var(--fs-4); font-weight: 600; line-height: 1.1; }
+.day-btn .st { font-size: var(--fs-1); color: var(--muted); }
+.day-btn[aria-selected="true"] { color: var(--on-pick); background: var(--pick); box-shadow: 0 0.25rem 1rem var(--glow-gold); }
+.day-btn[aria-selected="true"] .wd, .day-btn[aria-selected="true"] .st { color: var(--pick-sub); }
 
 /* ---------- dia ---------- */
 .day-head { display: grid; gap: var(--sp-2); }
+.day-head .eyebrow { color: var(--ornament); }
+.day-head .progress { padding-top: var(--sp-2); }
 .day-name {
   font-family: var(--font-serif);
   font-size: var(--fs-5);
@@ -420,8 +458,9 @@ a.fact:hover { color: var(--accent); }
   position: absolute;
   top: var(--sp-5);
   bottom: var(--sp-5);
-  left: calc(var(--sp-6) / 2);
-  border-left: 1.5px solid var(--line);
+  left: calc(var(--sp-6) / 2 - 0.0625rem);
+  width: 0.125rem;
+  background: repeating-linear-gradient(180deg, var(--line) 0 0.375rem, transparent 0.375rem 0.75rem);
 }
 .tl-item { position: relative; display: grid; gap: var(--sp-2); }
 .tl-leg {
@@ -497,17 +536,29 @@ details.stop > summary .chev { transition: transform var(--dur) var(--ease); }
 details.stop[open] > summary .chev { transform: rotate(180deg); }
 details.stop > .stop-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); padding: 0 var(--sp-4) var(--sp-4); }
 
-.day-end {
+.orn {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  margin-left: var(--sp-7);
+  color: var(--ornament);
+}
+.orn::before, .orn::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.orn .i { width: 1rem; height: 1rem; fill: currentColor; stroke: none; }
+.day-end {
+  display: grid;
+  gap: var(--sp-3);
+  justify-items: center;
+  padding-top: var(--sp-2);
   color: var(--ornament);
   font-family: var(--font-serif);
   font-style: italic;
   font-size: var(--fs-3);
+  text-align: center;
 }
-.day-end .i { fill: currentColor; stroke: none; }
+.day-end .orn { width: 100%; }
+.foot { display: grid; gap: var(--sp-2); justify-items: center; text-align: center; padding-top: var(--sp-7); color: var(--muted); }
+.foot .orn { width: min(100%, 16rem); }
+.foot .serif { font-family: var(--font-serif); font-style: italic; font-size: var(--fs-3); color: var(--ornament); }
 
 .sim { color: var(--muted); font-size: var(--fs-2); }
 .sim summary { min-height: var(--tap); display: flex; align-items: center; cursor: pointer; }
@@ -694,7 +745,7 @@ details.stop > .stop-body { display: grid; grid-template-columns: minmax(0, 1fr)
   .nav a[aria-current="page"] { color: var(--on-gold); background: var(--gold); }
   .nav a[aria-current="page"] .i { color: var(--on-gold); background: none; }
   main { padding-top: var(--sp-5); padding-bottom: var(--sp-7); }
-  .band { margin: 0; padding: var(--sp-6); border-radius: var(--radius-lg); }
+  .band { margin: 0; padding: var(--sp-6) var(--sp-6) calc(var(--sp-6) + var(--sky-h)); border-radius: var(--radius-lg); }
   .days { margin: 0; padding-inline: 0; }
   .wx-grid, .tips, .flights { grid-template-columns: 1fr 1fr; }
 }
@@ -726,6 +777,8 @@ details.stop > .stop-body { display: grid; grid-template-columns: minmax(0, 1fr)
 
 @media (prefers-reduced-motion: no-preference) {
   .band::before { animation: twinkle 3s var(--ease) infinite alternate; }
+  .band::after { animation: snow 18s linear infinite; }
+  @keyframes snow { to { background-position: 1rem 7rem, 5rem 13rem, 0 9rem; } }
   .is-now .tl-mark { animation: glow 1.6s var(--ease) infinite alternate; }
   @keyframes twinkle { to { opacity: 1; } }
   @keyframes glow { to { box-shadow: 0 0 0 0.375rem var(--success-soft), 0 0 1.25rem var(--glow-green); } }
