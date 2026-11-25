@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  toMin, fmtH, nowInSP, statusFor, leaveTime, uberRange, liveState, daysUntil,
+  toMin, fmtH, nowInSP, statusFor, leaveTime, uberRange, liveState, daysUntil, stopKey,
   parseForecast, weatherAlerts, wearAdvice, describeCode,
 } from "../site/js/core.js";
 import { DAYS } from "../site/js/roteiro.js";
@@ -21,17 +21,30 @@ test("usa o horário de Brasília mesmo com o celular em outro fuso", () => {
   assert.deepEqual(nowInSP(new Date("2026-11-25T02:00:00Z")), { date: "2026-11-24", min: 1380 });
 });
 
-test("status de cada parada: feito, agora, próximo", () => {
-  const d = day([{ t: "09:00" }, { t: "10:00" }, { t: "11:00" }]);
-  const at = (date, min) => d.stops.map((_, i) => statusFor(d, i, { date, min }));
-  assert.deepEqual(at(d.date, toMin("08:00")), ["next", "", ""]);
-  assert.deepEqual(at(d.date, toMin("10:30")), ["done", "now", "next"]);
-  assert.deepEqual(at(d.date, toMin("23:00")), ["done", "done", "done"]);
-  // borda: no minuto em que a próxima começa, a anterior já está feita
-  assert.deepEqual(at(d.date, toMin("10:00")), ["done", "now", "next"]);
-  assert.deepEqual(at(d.date, toMin("22:00")), ["done", "done", "done"]);
-  assert.deepEqual(at("2026-11-24", 0), ["", "", ""]);
-  assert.deepEqual(at("2026-11-26", 0), ["done", "done", "done"]);
+test("status: segue a ordem, marcado à mão, fixo passa sozinho", () => {
+  const d = day([
+    { t: "07:00", end: "09:00", title: "Café" },
+    { title: "Lago" },
+    { title: "Praça" },
+    { t: "12:30", title: "Almoço" },
+    { title: "Igreja" },
+  ]);
+  const at = (min, marks = {}, date = d.date) => d.stops.map((_, i) => statusFor(d, i, { date, min }, marks));
+  const k = (i) => stopKey(d, d.stops[i]);
+  // café ainda valendo: é o próximo
+  assert.deepEqual(at(toMin("08:00")), ["next", "", "", "", ""]);
+  // café passou sozinho; o lago é o próximo mesmo sem horário
+  assert.deepEqual(at(toMin("10:00")), ["done", "next", "", "", ""]);
+  // marcou o lago: a praça vira a próxima
+  assert.deepEqual(at(toMin("10:30"), { [k(1)]: true }), ["done", "done", "next", "", ""]);
+  // pulou a praça e marcou o almoço: a praça fica em aberto e a igreja é a próxima
+  assert.deepEqual(at(toMin("13:00"), { [k(1)]: true, [k(3)]: true }), ["done", "done", "open", "done", "next"]);
+  // almoço passou sozinho (1 h depois) sem marcar
+  assert.deepEqual(at(toMin("13:31"), { [k(1)]: true, [k(2)]: true }), ["done", "done", "done", "done", "next"]);
+  // desmarcar reabre até parada fixa que já passou
+  assert.deepEqual(at(toMin("10:00"), { [k(0)]: false }), ["next", "", "", "", ""]);
+  assert.deepEqual(at(0, {}, "2026-11-24"), ["", "", "", "", ""]);
+  assert.deepEqual(at(0, {}, "2026-11-26"), ["done", "done", "done", "done", "done"]);
 });
 
 test("hora de sair usa o maior tempo do trajeto", () => {
@@ -40,6 +53,7 @@ test("hora de sair usa o maior tempo do trajeto", () => {
   assert.equal(leaveTime({ t: "17:15", trip: { mode: "uber", min: [10, 15] } }), "17:15");
   assert.equal(leaveTime({ t: "10:10", leg: { mode: "bus", label: "Rota amarela" } }), null);
   assert.equal(leaveTime({ t: "07:00" }), null);
+  assert.equal(leaveTime({ title: "sem horário", leg: { mode: "walk", min: [5, 10] } }), null);
 });
 
 test("soma o Uber previsto do dia", () => {
@@ -57,9 +71,12 @@ test("cartão ao vivo antes, durante e depois da viagem", () => {
   assert.deepEqual(liveState(DAYS, { date: "2026-11-29", min: 600 }), { phase: "after" });
   const s = liveState(DAYS, { date: "2026-11-27", min: toMin("17:00") });
   assert.equal(s.phase, "during");
-  assert.equal(DAYS[s.di].stops[s.nowIdx].title, "Volta ao hotel");
-  assert.equal(DAYS[s.di].stops[s.nextIdx].title, "Uber até o Gatzz");
+  assert.equal(DAYS[s.di].stops[s.fixedIdx].title, "Uber até o Gatzz");
   assert.deepEqual(s.leave, { at: "17:15", inMin: 15 });
+  // na quarta, depois do café, sem nada marcado: o primeiro passeio é o lago mais perto do hotel
+  const q = liveState(DAYS, { date: "2026-11-25", min: toMin("10:15") });
+  assert.equal(DAYS[q.di].stops[q.nextIdx].title, "Lago Joaquina Rita Bier");
+  assert.equal(DAYS[q.di].stops[q.fixedIdx].title, "Naro Sushi");
 });
 
 test("todo dia tem café, almoço, lanche e jantar, nessa ordem", () => {
@@ -92,9 +109,12 @@ test("o roteiro está consistente", () => {
     let prev = -1;
     for (const s of d.stops) {
       const where = `${d.date} ${s.t} ${s.title}`;
-      assert.match(s.t, /^\d{2}:\d{2}$/, where);
-      assert.ok(toMin(s.t) > prev, `fora de ordem: ${where}`);
-      prev = toMin(s.t);
+      if (s.t) {
+        assert.match(s.t, /^\d{2}:\d{2}$/, where);
+        assert.ok(toMin(s.t) > prev, `horário fixo fora de ordem: ${where}`);
+        prev = toMin(s.t);
+        if (s.end) assert.ok(toMin(s.end) > toMin(s.t), `fim antes do começo: ${where}`);
+      }
       assert.ok(s.title && s.desc, `sem título ou descrição: ${where}`);
       assert.ok(!(s.leg && s.trip), `leg e trip juntos: ${where}`);
       const mv = s.leg || s.trip;
@@ -105,6 +125,8 @@ test("o roteiro está consistente", () => {
       }
     }
     assert.ok(toMin(d.endAt) > prev, `fim do dia antes da última parada: ${d.date}`);
+    const titles = d.stops.map((s) => s.title);
+    assert.equal(new Set(titles).size, titles.length, `título repetido no dia (a marcação de feito usa o título): ${d.date}`);
   }
   for (let i = 1; i < DAYS.length; i++) assert.ok(DAYS[i].date > DAYS[i - 1].date);
 });

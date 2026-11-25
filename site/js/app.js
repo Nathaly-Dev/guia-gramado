@@ -2,7 +2,7 @@
 import { DAYS, BEFORE } from "./roteiro.js";
 import * as P from "./preparo.js";
 import {
-  toMin, fmtH, nowInSP, statusFor, stopEnd, leaveTime, moveOf, uberRange, paidCount,
+  toMin, fmtH, nowInSP, statusFor, leaveTime, moveOf, uberRange, paidCount, isFixed, stopKey,
   liveState, durationLabel, daysUntil, describeCode, parseForecast, weatherAlerts, wearAdvice,
   MEALS, mealsOf,
 } from "./core.js";
@@ -51,6 +51,16 @@ function fmtDate(iso) {
 // ---------- relógio (real ou simulado) ----------
 let SIM = null;
 const now = () => SIM || nowInSP();
+
+// ---------- paradas feitas (marcadas à mão, guardadas no celular) ----------
+const MARKS_KEY = "feito:v1";
+let MARKS = store.get(MARKS_KEY, {});
+
+function toggleDone(key, nowDone) {
+  // nowDone: o estado que a parada tem agora (feita ou não); o clique inverte.
+  MARKS = { ...MARKS, [key]: !nowDone };
+  store.set(MARKS_KEY, MARKS);
+}
 
 // ---------- deslocamentos ----------
 const MODE = {
@@ -189,6 +199,7 @@ function stateTag(st) {
   if (st === "now") return `<span class="state state-now">${icon("now")}Agora</span>`;
   if (st === "next") return `<span class="state state-next">${icon("clock")}Próximo</span>`;
   if (st === "done") return `<span class="state state-done">${icon("check")}Feito</span>`;
+  if (st === "open") return `<span class="state state-danger">${icon("alert")}Em aberto</span>`;
   return "";
 }
 
@@ -198,7 +209,7 @@ const ornament = (text) => `<p class="day-end"><span class="orn" aria-hidden="tr
 const welcomeHTML = ([pre, em, post]) => `${esc(pre)}<em>${esc(em)}</em>${esc(post)}`;
 
 function renderLive(n) {
-  const s = liveState(DAYS, n);
+  const s = liveState(DAYS, n, MARKS);
   let html = "";
   if (s.phase === "before") {
     const tasks = BEFORE.map((t) => {
@@ -225,32 +236,39 @@ function renderLive(n) {
       </section>`;
   } else {
     const day = DAYS[s.di];
+    const total = day.stops.length;
     let status;
-    if (s.nowIdx >= 0) {
-      const cur = day.stops[s.nowIdx];
-      const endAt = stopEnd(day, s.nowIdx);
-      const start = toMin(cur.t);
-      const pct = Math.round(Math.min(100, Math.max(0, ((n.min - start) / Math.max(1, toMin(endAt) - start)) * 100)));
-      status = `<p class="live-now"><span class="dot" aria-hidden="true"></span><span>Agora: <strong>${esc(cur.title)}</strong>, até ${fmtH(endAt)}</span></p>
-        <div class="live-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Andamento da atividade"><span style="width:${pct}%"></span></div>`;
-    } else if (s.nextIdx >= 0) {
-      status = `<p class="live-now">${icon("clock")}<span>Tempo livre. Aproveitem!</span></p>`;
+    if (s.nextIdx >= 0) {
+      const pct = Math.round((s.doneCount / total) * 100);
+      status = `<p class="live-now">${icon("check")}<span><strong class="num">${s.doneCount} de ${total}</strong> paradas feitas. No ritmo de vocês!</span></p>
+        <div class="live-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Paradas feitas hoje"><span style="width:${pct}%"></span></div>`;
     } else {
       const tomorrow = DAYS[s.di + 1];
-      status = `<p class="live-now">${icon("moon")}<span>Dia encerrado. Bons sonhos!${tomorrow ? ` Amanhã: <strong>${esc(tomorrow.name)}</strong>` : ""}</span></p>`;
+      status = `<p class="live-now">${icon("moon")}<span>Dia concluído. Bons sonhos!${tomorrow ? ` Amanhã: <strong>${esc(tomorrow.name)}</strong>` : ""}</span></p>`;
+    }
+    // Compromisso com horário marcado (ingresso, show, café do hotel).
+    let fixed = "";
+    if (s.fixedIdx >= 0 && s.fixedIdx !== s.nextIdx) {
+      const fx = day.stops[s.fixedIdx];
+      const when = s.fixedInMin > 0 ? `em ${durationLabel(s.fixedInMin)}` : "já começou";
+      const leave = s.leave
+        ? s.leave.inMin <= 0
+          ? ` · <span class="state state-danger">${icon("alert")}Hora de ir</span>`
+          : ` · saiam às <strong class="num">${fmtH(s.leave.at)}</strong>${s.leave.inMin <= 20 ? ` <span class="state state-next">${icon("alert")}em ${s.leave.inMin} min</span>` : ""}`
+        : "";
+      fixed = `<p class="live-now">${icon("clock")}<span>Horário marcado: <strong>${esc(fx.title)}</strong> às <span class="num">${fmtH(fx.t)}</span> (${when})${leave}</span></p>`;
     }
     let next = "";
     if (s.nextIdx >= 0) {
       const st = day.stops[s.nextIdx];
       const mv = moveOf(st);
-      const urgent = s.leave && s.leave.inMin <= 10;
-      const leave = s.leave
+      const key = stopKey(day, st);
+      const timeTxt = s.fixedIdx === s.nextIdx ? ` · <span class="num">${fmtH(st.t)}</span> · <span class="num">${s.fixedInMin > 0 ? `em ${durationLabel(s.fixedInMin)}` : "agora"}</span>` : "";
+      const leave = s.fixedIdx === s.nextIdx && s.leave
         ? `<p class="leave">${
             s.leave.inMin <= 0
               ? `<span class="state state-danger">${icon("alert")}Hora de sair</span>`
-              : `<span>Saiam às</span><strong class="num">${fmtH(s.leave.at)}</strong>${
-                  urgent ? `<span class="state state-next">${icon("alert")}em ${s.leave.inMin} min</span>` : `<span class="num">em ${durationLabel(s.leave.inMin)}</span>`
-                }`
+              : `<span>Saiam às</span><strong class="num">${fmtH(s.leave.at)}</strong><span class="num">em ${durationLabel(s.leave.inMin)}</span>`
           }</p>`
         : "";
       const go = st.place && (!mv || mv.mode !== "bus")
@@ -259,11 +277,11 @@ function renderLive(n) {
       const uber = wantsUber(st) ? `<a class="btn ghost" href="${uberLink(uberDest(st))}" ${ext}>${icon("car")}Chamar Uber</a>` : "";
       next = `
         <div class="glass">
-          <p class="eyebrow">Próximo · <span class="num">${fmtH(st.t)}</span> · <span class="num">em ${durationLabel(s.nextInMin)}</span></p>
+          <p class="eyebrow">Próximo${timeTxt}</p>
           <p class="glass-title">${esc(st.title)}</p>
           ${leave}
           ${mv ? moveHTML(mv) : ""}
-          <div class="actions">${go}${uber}<button class="btn ghost" type="button" data-goto="${s.di}-${s.nextIdx}">Ver no roteiro</button></div>
+          <div class="actions"><button class="btn gold" type="button" data-toggle="${esc(key)}" data-was="0">${icon("check")}Feito</button>${go}${uber}<button class="btn ghost" type="button" data-goto="${s.di}-${s.nextIdx}">Ver no roteiro</button></div>
         </div>`;
     }
     html = `
@@ -271,6 +289,7 @@ function renderLive(n) {
         <p class="eyebrow">${icon("star")}${greeting(n.min)} · ${esc(fmtDate(day.date))}</p>
         <h2 class="live-title" id="live-t">${welcomeHTML(day.welcome)}</h2>
         ${status}
+        ${fixed}
         ${next}
         ${SKY}
       </section>`;
@@ -295,7 +314,7 @@ function weatherFact(date) {
   return `<a class="fact num" href="#tempo">${icon(c.icon)}${f.min}° a ${f.max}°${rain}</a>`;
 }
 
-function stopBody(s, di, si) {
+function stopBody(s, di, si, extra = "") {
   const mv = moveOf(s);
   const meta = [
     s.tip && `<li>${icon("bulb")}<span>Dica: ${esc(s.tip)}</span></li>`,
@@ -305,6 +324,7 @@ function stopBody(s, di, si) {
   const actions = [
     s.place && `<a class="btn" href="${mapsSearch(s.place)}" ${ext}>${icon("map")}Mapa</a>`,
     wantsUber(s) && `<a class="btn" href="${uberLink(uberDest(s))}" ${ext}>${icon("car")}Uber</a>`,
+    extra,
   ].filter(Boolean).join("");
   return `
     <h3 class="stop-title" id="t-${di}-${si}">${esc(s.title)}</h3>
@@ -323,20 +343,25 @@ function renderDay(n = now()) {
   const rank = { danger: 0, notice: 1 };
   const alerts = weatherAlerts(forecastFor(d.date)).sort((a, b) => rank[a.level] - rank[b.level]).map(alertHTML).join("");
   const notes = (d.notes || []).map((t) => `<p class="note note-info">${icon("info")}<span>${esc(t)}</span></p>`).join("");
-  const statuses = d.stops.map((_, i) => statusFor(d, i, n));
+  const statuses = d.stops.map((_, i) => statusFor(d, i, n, MARKS));
+  const canMark = n.date === d.date;
+  const timeOf = (s) => (isFixed(s) ? fmtH(s.t) : "");
+  const toggleBtn = (s, done, strong = false) => canMark
+    ? `<button class="btn${strong ? " gold" : ""}" type="button" data-toggle="${esc(stopKey(d, s))}" data-was="${done ? 1 : 0}">${icon(done ? "refresh" : "check")}${done ? "Desmarcar" : "Marcar como feito"}</button>`
+    : "";
 
   // Paradas já feitas no começo do dia viram um grupo fechado: a atual fica no alto.
   let doneLead = 0;
   while (doneLead < statuses.length && statuses[doneLead] === "done") doneLead++;
   const doneDetails = (s, i) => `<details class="stop" aria-labelledby="t-${dayIdx}-${i}" id="stop-${dayIdx}-${i}">
-      <summary><span class="num">${fmtH(s.t)}</span><span class="t">${esc(s.title)}</span>${stateTag("done")}${icon("chevron", "chev")}</summary>
-      <div class="stop-body">${stopBody(s, dayIdx, i)}</div>
+      <summary><span class="num">${timeOf(s)}</span><span class="t">${esc(s.title)}</span>${stateTag("done")}${icon("chevron", "chev")}</summary>
+      <div class="stop-body">${stopBody(s, dayIdx, i, toggleBtn(s, true))}</div>
     </details>`;
   const grouped = doneLead >= 2;
   const doneGroup = grouped
     ? `<li class="tl-item is-done"><div class="tl-row"><span class="tl-mark"></span>
         <details class="stop done-group">
-          <summary>${icon("check")}<span class="t">${doneLead === d.stops.length ? "Dia concluído" : `${doneLead} paradas feitas`}</span><span class="num">${fmtH(d.stops[0].t)} a ${fmtH(d.stops[doneLead - 1].t)}</span>${icon("chevron", "chev")}</summary>
+          <summary>${icon("check")}<span class="t">${doneLead === d.stops.length ? "Dia concluído" : `${doneLead} paradas feitas`}</span>${icon("chevron", "chev")}</summary>
           <div class="done-list">${d.stops.slice(0, doneLead).map(doneDetails).join("")}</div>
         </details></div></li>`
     : "";
@@ -346,17 +371,18 @@ function renderDay(n = now()) {
     const st = statuses[i];
     const leg = s.leg ? `<div class="tl-leg">${icon(MODE[s.leg.mode].icon)}<span class="tnum">${esc(moveText(s.leg))}</span>${s.leg.alt ? `<span>${esc(s.leg.alt)}</span>` : ""}</div>` : "";
     const lt = leaveTime(s);
-    const leaveTag = !st.match(/done|now/) && lt && !s.trip && lt !== s.t ? `<span class="state state-paid num">${icon("walk")}Sair ${fmtH(lt)}</span>` : "";
+    const leaveTag = st !== "done" && lt && !s.trip && lt !== s.t ? `<span class="state state-paid num">${icon("walk")}Sair ${fmtH(lt)}</span>` : "";
+    const fixedTag = isFixed(s) && st !== "done" ? `<span class="state state-paid">${icon("clock")}Horário marcado</span>` : "";
     const paidTag = s.paid ? `<span class="state state-paid">${icon("ticket")}Já pago</span>` : "";
-    const mark = st === "now" ? "now" : st === "next" ? "clock" : st === "done" ? "check" : "pin";
+    const mark = st === "next" ? "now" : st === "done" ? "check" : st === "open" ? "alert" : "pin";
     const card = st === "done"
       ? `<details class="stop" aria-labelledby="t-${dayIdx}-${i}">
-          <summary><span class="num">${fmtH(s.t)}</span><span class="t">${esc(s.title)}</span>${stateTag(st)}${icon("chevron", "chev")}</summary>
-          <div class="stop-body">${stopBody(s, dayIdx, i)}</div>
+          <summary><span class="num">${timeOf(s)}</span><span class="t">${esc(s.title)}</span>${stateTag(st)}${icon("chevron", "chev")}</summary>
+          <div class="stop-body">${stopBody(s, dayIdx, i, toggleBtn(s, true))}</div>
         </details>`
       : `<article class="stop" aria-labelledby="t-${dayIdx}-${i}">
-          <div class="stop-head"><span class="stop-time num">${fmtH(s.t)}</span>${stateTag(st)}${paidTag}${leaveTag}</div>
-          ${stopBody(s, dayIdx, i)}
+          <div class="stop-head">${isFixed(s) ? `<span class="stop-time num">${fmtH(s.t)}</span>` : ""}${stateTag(st)}${fixedTag}${paidTag}${leaveTag}</div>
+          ${stopBody(s, dayIdx, i, toggleBtn(s, false, st === "next"))}
         </article>`;
     return `<li class="tl-item is-${st || "later"}" id="stop-${dayIdx}-${i}">${leg}<div class="tl-row"><span class="tl-mark">${icon(mark)}</span>${card}</div></li>`;
   }).join("");
@@ -374,7 +400,7 @@ function renderDay(n = now()) {
     const hit = meals.find((x) => x.meal === m);
     const [ico, label] = MEAL_INFO[m];
     return hit
-      ? `<button class="fact meal num" type="button" data-goto="${dayIdx}-${hit.i}">${icon(ico)}${label} ${fmtH(hit.t)}</button>`
+      ? `<button class="fact meal num" type="button" data-goto="${dayIdx}-${hit.i}">${icon(ico)}${label}${hit.t ? ` ${fmtH(hit.t)}` : ""}</button>`
       : `<span class="state state-danger">${icon("alert")}Sem ${label.toLowerCase()}</span>`;
   }).join("");
 
@@ -384,6 +410,7 @@ function renderDay(n = now()) {
       <h2 class="day-name">${esc(d.name)}</h2>
       <p class="day-magic">${esc(d.magic)}</p>
       <p class="day-hint">${esc(d.hint)}</p>
+      <p class="day-hint">Sem horário = no ritmo de vocês: sigam a ordem e marquem "feito". Tempos a pé sem contar as paradas para foto.</p>
     </div>
     ${alerts ? `<div class="block">${alerts}</div>` : ""}
     <div class="day-facts">
@@ -403,7 +430,7 @@ function renderDay(n = now()) {
 }
 
 // Só redesenha a linha do tempo quando algum status muda (preserva paradas abertas).
-const signature = (n) => `${dayIdx}|${n.date}|${DAYS[dayIdx].stops.map((_, i) => statusFor(DAYS[dayIdx], i, n)).join(",")}`;
+const signature = (n) => `${dayIdx}|${n.date}|${DAYS[dayIdx].stops.map((_, i) => statusFor(DAYS[dayIdx], i, n, MARKS)).join(",")}`;
 
 function tick() {
   if (SIM || currentTab !== "roteiro") return;
@@ -644,6 +671,14 @@ function bind() {
       dayIdx = Number(dayBtn.dataset.day);
       renderDays(now());
       renderDay(now());
+      return;
+    }
+    const tg = e.target.closest("[data-toggle]");
+    if (tg) {
+      toggleDone(tg.dataset.toggle, tg.dataset.was === "1");
+      const y = window.scrollY;
+      renderRoteiro();
+      window.scrollTo(0, y);
       return;
     }
     const go = e.target.closest("[data-goto]");

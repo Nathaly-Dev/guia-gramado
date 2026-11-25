@@ -45,24 +45,49 @@ export function nowInSP(date = new Date()) {
   };
 }
 
-export const stopEnd = (day, i) =>
-  i + 1 < day.stops.length ? day.stops[i + 1].t : day.endAt;
+// Parada com horário marcado (ingresso, show, voo, café do hotel) tem `t`.
+// As outras seguem o ritmo de vocês: sem horário, só a ordem do caminho.
+export const isFixed = (s) => Boolean(s.t);
+export const stopKey = (day, s) => `${day.date}|${s.title}`;
 
-export function statusFor(day, i, now) {
+// Parada fixa sem marcação vira "feita" sozinha depois que passa (padrão: 1 hora).
+export const fixedEnd = (s) => s.end || fromMin(toMin(s.t) + 60);
+
+// marks: { chave: true (feito) | false (reaberto à mão) }. Sem chave: automático.
+export function isDone(day, i, now, marks = {}) {
+  if (now.date < day.date) return false;
+  const s = day.stops[i];
+  const m = marks[stopKey(day, s)];
+  if (m === true) return true;
+  if (m === false) return false;
+  if (now.date > day.date) return true;
+  return isFixed(s) && now.min >= toMin(fixedEnd(s));
+}
+
+// Próxima parada: a primeira pendente depois da última feita (segue o caminho);
+// se não houver, a primeira pendente do dia.
+export function nextPending(day, now, marks = {}) {
+  if (now.date !== day.date) return now.date < day.date ? 0 : -1;
+  const done = day.stops.map((_, i) => isDone(day, i, now, marks));
+  const last = done.lastIndexOf(true);
+  const after = done.findIndex((d, i) => !d && i > last);
+  return after >= 0 ? after : done.indexOf(false);
+}
+
+// "" (depois), "next" (próxima), "open" (pulada, em aberto), "done" (feita).
+export function statusFor(day, i, now, marks = {}) {
   if (now.date < day.date) return "";
-  if (now.date > day.date) return "done";
-  const start = toMin(day.stops[i].t);
-  const end = toMin(stopEnd(day, i));
-  if (now.min >= end) return "done";
-  if (now.min >= start) return "now";
-  const firstFuture = day.stops.findIndex((s) => toMin(s.t) > now.min);
-  return firstFuture === i ? "next" : "";
+  if (isDone(day, i, now, marks)) return "done";
+  const next = nextPending(day, now, marks);
+  if (i === next) return "next";
+  return i < next ? "open" : "";
 }
 
 const TIMED_MODES = new Set(["walk", "uber", "car"]);
 
 // Horário em que é preciso sair para chegar a tempo na parada.
 export function leaveTime(stop) {
+  if (!isFixed(stop)) return null;
   if (stop.trip) return stop.t;
   const leg = stop.leg;
   if (!leg) return null;
@@ -109,7 +134,7 @@ export function durationLabel(minutes) {
 }
 
 // Estado do cartão "ao vivo": antes, durante ou depois da viagem.
-export function liveState(days, now) {
+export function liveState(days, now, marks = {}) {
   const first = days[0].date;
   const last = days[days.length - 1].date;
   if (now.date < first) return { phase: "before", days: daysUntil(now.date, first) };
@@ -117,16 +142,18 @@ export function liveState(days, now) {
   const di = days.findIndex((d) => d.date === now.date);
   if (di < 0) return { phase: "after" };
   const day = days[di];
-  const nowIdx = day.stops.findIndex((_, i) => statusFor(day, i, now) === "now");
-  const nextIdx = day.stops.findIndex((s) => toMin(s.t) > now.min);
+  const nextIdx = nextPending(day, now, marks);
+  const doneCount = day.stops.filter((_, i) => isDone(day, i, now, marks)).length;
+  // Próximo compromisso com horário ainda não feito.
+  const fixedIdx = day.stops.findIndex((s, i) => isFixed(s) && !isDone(day, i, now, marks));
   let leave = null;
-  if (nextIdx >= 0) {
-    const lt = leaveTime(day.stops[nextIdx]);
+  if (fixedIdx >= 0) {
+    const lt = leaveTime(day.stops[fixedIdx]);
     if (lt) leave = { at: lt, inMin: toMin(lt) - now.min };
   }
   return {
-    phase: "during", di, nowIdx, nextIdx, leave,
-    nextInMin: nextIdx >= 0 ? toMin(day.stops[nextIdx].t) - now.min : null,
+    phase: "during", di, nextIdx, fixedIdx, leave, doneCount,
+    fixedInMin: fixedIdx >= 0 ? toMin(day.stops[fixedIdx].t) - now.min : null,
   };
 }
 
