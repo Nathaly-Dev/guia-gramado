@@ -58,7 +58,7 @@ export function isDone(day, i, now, marks = {}) {
   if (now.date < day.date) return false;
   const s = day.stops[i];
   const m = marks[stopKey(day, s)];
-  if (m === true) return true;
+  if (m === true || m === "skip") return true;
   if (m === false) return false;
   // Parada com horário marcado passa sozinha; as livres só contam quando vocês marcam.
   if (now.date > day.date) return isFixed(s);
@@ -76,11 +76,16 @@ export function nextPending(day, now, marks = {}) {
 }
 
 // Passeios livres de dias anteriores que ficaram sem marcar.
+// Não repete o que já está no roteiro de hoje (mesmo lugar).
 export function openFromPast(days, now, marks = {}) {
   const out = [];
+  const today = days.find((d) => d.date === now.date);
+  const todayPlaces = new Set((today ? today.stops : []).map((s) => s.place).filter(Boolean));
   days.forEach((d, di) => {
     if (d.date >= now.date) return;
-    d.stops.forEach((_, i) => { if (!isDone(d, i, now, marks)) out.push({ di, i }); });
+    d.stops.forEach((s, i) => {
+      if (!isDone(d, i, now, marks) && !todayPlaces.has(s.place)) out.push({ di, i });
+    });
   });
   return out;
 }
@@ -88,6 +93,7 @@ export function openFromPast(days, now, marks = {}) {
 // "" (depois), "next" (próxima), "open" (pulada, em aberto), "done" (feita).
 export function statusFor(day, i, now, marks = {}) {
   if (now.date < day.date) return "";
+  if (marks[stopKey(day, day.stops[i])] === "skip") return "skip";
   if (isDone(day, i, now, marks)) return "done";
   if (now.date > day.date) return "open";
   const next = nextPending(day, now, marks);

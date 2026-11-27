@@ -56,9 +56,9 @@ const now = () => SIM || nowInSP();
 const MARKS_KEY = "feito:v1";
 let MARKS = store.get(MARKS_KEY, {});
 
-function toggleDone(key, nowDone) {
+function toggleDone(key, nowDone, skip = false) {
   // nowDone: o estado que a parada tem agora (feita ou não); o clique inverte.
-  MARKS = { ...MARKS, [key]: !nowDone };
+  MARKS = { ...MARKS, [key]: skip ? "skip" : !nowDone };
   store.set(MARKS_KEY, MARKS);
 }
 
@@ -199,6 +199,7 @@ function stateTag(st) {
   if (st === "now") return `<span class="state state-now">${icon("now")}Agora</span>`;
   if (st === "next") return `<span class="state state-next">${icon("clock")}Próximo</span>`;
   if (st === "done") return `<span class="state state-done">${icon("check")}Feito</span>`;
+  if (st === "skip") return `<span class="state state-done">${icon("x")}Pulado</span>`;
   if (st === "open") return `<span class="state state-danger">${icon("alert")}Em aberto</span>`;
   return "";
 }
@@ -355,20 +356,20 @@ function renderDay(n = now()) {
   const backlog = n.date === d.date ? openFromPast(DAYS, n, MARKS) : [];
   const backlogHTML = backlog.length
     ? `<details class="stop backlog">
-        <summary>${icon("alert")}<span class="t">${backlog.length} ${backlog.length === 1 ? "passeio ficou" : "passeios ficaram"} em aberto em outros dias</span>${icon("chevron", "chev")}</summary>
+        <summary>${icon("alert")}<span class="t">${backlog.length} em aberto de outros dias</span>${icon("chevron", "chev")}</summary>
         <ul class="backlog-list">${backlog.map(({ di, i }) => {
           const bd = DAYS[di], bs = bd.stops[i];
           return `<li><div><strong>${esc(bs.title)}</strong> <span class="muted">· ${esc(bd.tab)}</span></div>
-            <div class="actions">${bs.place ? `<a class="btn" href="${mapsSearch(bs.place)}" ${ext}>${icon("map")}Mapa</a>` : ""}<button class="btn" type="button" data-toggle="${esc(stopKey(bd, bs))}" data-was="0">${icon("check")}Já fizemos</button></div></li>`;
+            <div class="actions"><button class="btn" type="button" data-toggle="${esc(stopKey(bd, bs))}" data-was="0">${icon("check")}Já fizemos</button><button class="btn" type="button" data-toggle="${esc(stopKey(bd, bs))}" data-was="0" data-skip="1">${icon("x")}Não vamos</button></div></li>`;
         }).join("")}</ul>
       </details>`
     : "";
 
   // Paradas já feitas no começo do dia viram um grupo fechado: a atual fica no alto.
   let doneLead = 0;
-  while (doneLead < statuses.length && statuses[doneLead] === "done") doneLead++;
+  while (doneLead < statuses.length && (statuses[doneLead] === "done" || statuses[doneLead] === "skip")) doneLead++;
   const doneDetails = (s, i) => `<details class="stop" aria-labelledby="t-${dayIdx}-${i}" id="stop-${dayIdx}-${i}">
-      <summary><span class="num">${timeOf(s)}</span><span class="t">${esc(s.title)}</span>${stateTag("done")}${icon("chevron", "chev")}</summary>
+      <summary><span class="num">${timeOf(s)}</span><span class="t">${esc(s.title)}</span>${stateTag(statuses[i])}${icon("chevron", "chev")}</summary>
       <div class="stop-body">${stopBody(s, dayIdx, i, toggleBtn(s, true))}</div>
     </details>`;
   const grouped = doneLead >= 2;
@@ -388,8 +389,8 @@ function renderDay(n = now()) {
     const leaveTag = st !== "done" && lt && !s.trip && lt !== s.t ? `<span class="state state-paid num">${icon("walk")}Sair ${fmtH(lt)}</span>` : "";
     const fixedTag = isFixed(s) && st !== "done" ? `<span class="state state-paid">${icon("clock")}Horário marcado</span>` : "";
     const paidTag = s.paid ? `<span class="state state-paid">${icon("ticket")}Já pago</span>` : "";
-    const mark = st === "next" ? "now" : st === "done" ? "check" : st === "open" ? "alert" : "pin";
-    const card = st === "done"
+    const mark = st === "next" ? "now" : st === "done" ? "check" : st === "skip" ? "x" : st === "open" ? "alert" : "pin";
+    const card = st === "done" || st === "skip"
       ? `<details class="stop" aria-labelledby="t-${dayIdx}-${i}">
           <summary><span class="num">${timeOf(s)}</span><span class="t">${esc(s.title)}</span>${stateTag(st)}${icon("chevron", "chev")}</summary>
           <div class="stop-body">${stopBody(s, dayIdx, i, toggleBtn(s, true))}</div>
@@ -690,7 +691,7 @@ function bind() {
     }
     const tg = e.target.closest("[data-toggle]");
     if (tg) {
-      toggleDone(tg.dataset.toggle, tg.dataset.was === "1");
+      toggleDone(tg.dataset.toggle, tg.dataset.was === "1", tg.dataset.skip === "1");
       const y = window.scrollY;
       renderRoteiro();
       window.scrollTo(0, y);

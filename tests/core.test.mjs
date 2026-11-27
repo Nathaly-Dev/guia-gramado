@@ -47,6 +47,8 @@ test("status: segue a ordem, marcado à mão, fixo passa sozinho", () => {
   // dia que passou: fixo conta como feito; livre fica em aberto até marcar
   assert.deepEqual(at(0, {}, "2026-11-26"), ["done", "open", "open", "done", "open"]);
   assert.deepEqual(at(0, { [k(1)]: true, [k(0)]: false }, "2026-11-26"), ["open", "done", "open", "done", "open"]);
+  // "Não vamos": fica pulado e não aparece como em aberto
+  assert.deepEqual(at(0, { [k(2)]: "skip" }, "2026-11-26"), ["done", "open", "skip", "done", "open"]);
 });
 
 test("hora de sair usa o maior tempo do trajeto", () => {
