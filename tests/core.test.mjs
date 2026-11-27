@@ -44,7 +44,9 @@ test("status: segue a ordem, marcado à mão, fixo passa sozinho", () => {
   // desmarcar reabre até parada fixa que já passou
   assert.deepEqual(at(toMin("10:00"), { [k(0)]: false }), ["next", "", "", "", ""]);
   assert.deepEqual(at(0, {}, "2026-11-24"), ["", "", "", "", ""]);
-  assert.deepEqual(at(0, {}, "2026-11-26"), ["done", "done", "done", "done", "done"]);
+  // dia que passou: fixo conta como feito; livre fica em aberto até marcar
+  assert.deepEqual(at(0, {}, "2026-11-26"), ["done", "open", "open", "done", "open"]);
+  assert.deepEqual(at(0, { [k(1)]: true, [k(0)]: false }, "2026-11-26"), ["open", "done", "open", "done", "open"]);
 });
 
 test("hora de sair usa o maior tempo do trajeto", () => {

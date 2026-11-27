@@ -2,7 +2,7 @@
 import { DAYS, BEFORE } from "./roteiro.js";
 import * as P from "./preparo.js";
 import {
-  toMin, fmtH, nowInSP, statusFor, leaveTime, moveOf, uberRange, paidCount, isFixed, stopKey,
+  toMin, fmtH, nowInSP, statusFor, leaveTime, moveOf, uberRange, paidCount, isFixed, stopKey, isDone, openFromPast,
   liveState, durationLabel, daysUntil, describeCode, parseForecast, weatherAlerts, wearAdvice,
   MEALS, mealsOf,
 } from "./core.js";
@@ -299,7 +299,8 @@ function renderLive(n) {
 
 function renderDays(n) {
   $("#days").innerHTML = DAYS.map((d, i) => {
-    const sub = d.date === n.date ? "Hoje" : n.date > d.date ? "Feito" : `${d.stops.length} paradas`;
+    const open = n.date > d.date ? d.stops.filter((_, j) => !isDone(d, j, n, MARKS)).length : 0;
+    const sub = d.date === n.date ? "Hoje" : n.date > d.date ? (open ? `${open} em aberto` : "Feito") : `${d.stops.length} paradas`;
     const [wd, dn] = d.tab.split(" ");
     return `<button class="day-btn" type="button" role="tab" aria-selected="${i === dayIdx}" data-day="${i}" aria-label="${esc(d.tab)}, ${sub}">
       <span class="wd">${esc(wd)}</span><span class="dn num">${esc(dn)}</span><span class="st">${sub}</span></button>`;
@@ -344,10 +345,23 @@ function renderDay(n = now()) {
   const alerts = weatherAlerts(forecastFor(d.date)).sort((a, b) => rank[a.level] - rank[b.level]).map(alertHTML).join("");
   const notes = (d.notes || []).map((t) => `<p class="note note-info">${icon("info")}<span>${esc(t)}</span></p>`).join("");
   const statuses = d.stops.map((_, i) => statusFor(d, i, n, MARKS));
-  const canMark = n.date === d.date;
+  const canMark = n.date >= d.date;
   const timeOf = (s) => (isFixed(s) ? fmtH(s.t) : "");
   const toggleBtn = (s, done, strong = false) => canMark
     ? `<button class="btn${strong ? " gold" : ""}" type="button" data-toggle="${esc(stopKey(d, s))}" data-was="${done ? 1 : 0}">${icon(done ? "refresh" : "check")}${done ? "Desmarcar" : "Marcar como feito"}</button>`
+    : "";
+
+  // Hoje: o que ficou sem fazer nos dias anteriores, para encaixar se der.
+  const backlog = n.date === d.date ? openFromPast(DAYS, n, MARKS) : [];
+  const backlogHTML = backlog.length
+    ? `<details class="stop backlog">
+        <summary>${icon("alert")}<span class="t">${backlog.length} ${backlog.length === 1 ? "passeio ficou" : "passeios ficaram"} em aberto em outros dias</span>${icon("chevron", "chev")}</summary>
+        <ul class="backlog-list">${backlog.map(({ di, i }) => {
+          const bd = DAYS[di], bs = bd.stops[i];
+          return `<li><div><strong>${esc(bs.title)}</strong> <span class="muted">· ${esc(bd.tab)}</span></div>
+            <div class="actions">${bs.place ? `<a class="btn" href="${mapsSearch(bs.place)}" ${ext}>${icon("map")}Mapa</a>` : ""}<button class="btn" type="button" data-toggle="${esc(stopKey(bd, bs))}" data-was="0">${icon("check")}Já fizemos</button></div></li>`;
+        }).join("")}</ul>
+      </details>`
     : "";
 
   // Paradas já feitas no começo do dia viram um grupo fechado: a atual fica no alto.
@@ -424,6 +438,7 @@ function renderDay(n = now()) {
       ${progress}
     </div>
     ${notes ? `<div class="block">${notes}</div>` : ""}
+    ${backlogHTML ? `<div class="block">${backlogHTML}</div>` : ""}
     <ol class="tl">${doneGroup}${items}</ol>
     ${ornament("Fim do dia. Bons sonhos!")}`;
   lastSignature = signature(n);
