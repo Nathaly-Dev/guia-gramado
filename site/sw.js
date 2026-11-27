@@ -1,7 +1,7 @@
 // Modo offline: guarda o guia no celular para abrir sem sinal na serra.
 // Estratégia: responde do cache na hora e atualiza em segundo plano quando há internet.
 // Ao mudar arquivos do guia, suba a versão para limpar o cache antigo.
-const VERSION = "guia-v12";
+const VERSION = "guia-v13";
 const FILES = [
   "./",
   "index.html",
